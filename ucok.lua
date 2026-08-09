@@ -1,13 +1,16 @@
---[[ INORYA XELEBOT - FINAL WORK 100% ]]
+--[[ INORYA XELEBOT - DELTA HP VERSION (FULL FITUR, MINUS DRAG) ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local mouse = player:GetMouse()
-local uis = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
 local players = game:GetService("Players")
+local uis = game:GetService("UserInputService")
+local sg = nil
+local mainFrame = nil
+local isMinimized = false
 
--- VARIABEL
+-- Variabel fitur
 local fly = false
 local noclip = false
 local esp = false
@@ -17,15 +20,8 @@ local speedValue = 16
 local bodyVel = nil
 local bodyGyro = nil
 local espData = {}
-local mainFrame = nil
-local isMinimized = false
-local sg = nil
-local dragging = false
-local dragInput = nil
-local dragStart = nil
-local startPos = nil
 
--- FUNGSI FLY
+-- FLY
 local function toggleFly(state)
     if state then
         if not char or not char.HumanoidRootPart then return end
@@ -49,7 +45,7 @@ local function toggleFly(state)
     end
 end
 
--- FUNGSI NOCLIP
+-- NOCLIP
 local function toggleNoclip(state)
     if state then
         if char and char.HumanoidRootPart then
@@ -62,7 +58,7 @@ local function toggleNoclip(state)
     end
 end
 
--- FUNGSI ESP
+-- ESP
 local function toggleESP(state)
     for _, data in pairs(espData) do
         if data.box then data.box:Destroy() end
@@ -128,7 +124,7 @@ local function toggleESP(state)
     end
 end
 
--- UPDATE ESP LINE
+-- UPDATE ESP
 runService.Heartbeat:Connect(function()
     if esp and char and char.HumanoidRootPart then
         local origin = char.HumanoidRootPart.Position
@@ -177,37 +173,36 @@ runService.Heartbeat:Connect(function()
     end
 end)
 
--- FUNGSI MENU (MINIMIZE + DRAG MANUAL)
-local function CreateFloatingGUI()
+-- ==================== MENU DELTA HP ====================
+local function CreateMenu()
+    -- Pake PlayerGui biar pasti muncul di HP
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then
+        playerGui = Instance.new("PlayerGui")
+        playerGui.Parent = player
+    end
+    
     sg = Instance.new("ScreenGui")
     sg.Name = "InoryaX"
-    sg.Parent = game.CoreGui
+    sg.Parent = playerGui
+    sg.ResetOnSpawn = false
     sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
+    -- Frame utama (DI TENGAH)
     mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 280, 0, 420)
-    mainFrame.Position = UDim2.new(0.5, -140, 0.5, -210)
+    mainFrame.Size = UDim2.new(0, 280, 0, 400)
+    mainFrame.Position = UDim2.new(0.5, -140, 0.5, -200)
     mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = sg
     mainFrame.Active = true
 
-    -- Background
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 55)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 25))
-    })
-    gradient.Parent = mainFrame
-
-    -- Title bar (drag manual)
+    -- Title
     local titleBar = Instance.new("Frame")
     titleBar.Size = UDim2.new(1, 0, 0, 30)
     titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
     titleBar.Parent = mainFrame
-    titleBar.Active = true
 
-    -- Title
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -60, 1, 0)
     title.Position = UDim2.new(0, 0, 0, 0)
@@ -218,34 +213,7 @@ local function CreateFloatingGUI()
     title.TextSize = 16
     title.Parent = titleBar
 
-    -- DRAG MANUAL (pake mouse)
-    titleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = mainFrame.Position
-        end
-    end)
-    
-    titleBar.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-
-    uis.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            mainFrame.Position = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-
-    -- Close button
+    -- Close
     local close = Instance.new("TextButton")
     close.Size = UDim2.new(0, 30, 1, 0)
     close.Position = UDim2.new(1, -30, 0, 0)
@@ -259,7 +227,7 @@ local function CreateFloatingGUI()
         sg:Destroy()
     end)
 
-    -- Minimize button
+    -- Minimize
     local minBtn = Instance.new("TextButton")
     minBtn.Size = UDim2.new(0, 30, 1, 0)
     minBtn.Position = UDim2.new(1, -60, 0, 0)
@@ -280,7 +248,7 @@ local function CreateFloatingGUI()
             end
             minBtn.Text = "□"
         else
-            mainFrame.Size = UDim2.new(0, 280, 0, 420)
+            mainFrame.Size = UDim2.new(0, 280, 0, 400)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= titleBar then
                     child.Visible = true
@@ -290,7 +258,7 @@ local function CreateFloatingGUI()
         end
     end)
 
-    -- Toggle buttons
+    -- Tombol fitur
     local toggles = {
         {name = "Fly", var = "fly"},
         {name = "NoClip", var = "noclip"},
@@ -368,7 +336,7 @@ local function CreateFloatingGUI()
     end)
 end
 
--- MAIN LOOP
+-- ==================== MAIN LOOP ====================
 runService.Heartbeat:Connect(function()
     if char and char.HumanoidRootPart and char.Humanoid then
         if speedEnabled then
@@ -419,5 +387,5 @@ player.CharacterAdded:Connect(function(newChar)
 end)
 
 -- INIT
-CreateFloatingGUI()
-print("✅ INORYA XELEBOT - FINAL WORK 100%!")
+CreateMenu()
+print("✅ INORYA XELEBOT - DELTA HP VERSION READY!")
