@@ -1,10 +1,11 @@
---[[ INORYA XELEBOT - ULTIMATE FIX (RESIZEABLE MENU + ESP LINE + BOX) ]]
+--[[ INORYA XELEBOT - ULTIMATE FINAL (FIX ALL) ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local mouse = player:GetMouse()
 local uis = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
+local players = game:GetService("Players")
 
 -- VARIABEL
 local fly = false
@@ -15,12 +16,13 @@ local speedEnabled = false
 local speedValue = 16
 local bodyVel = nil
 local bodyGyro = nil
-local noclipPart = nil
-local espObjects = {}
+local espLines = {}
 local mainFrame = nil
 local isResizing = false
+local dragStart = nil
+local dragFrame = nil
 
--- FUNGSI FLY (FIXED)
+-- FUNGSI FLY (WASD + SPACE + SHIFT)
 local function toggleFly(state)
     if state then
         if not char or not char.HumanoidRootPart then return end
@@ -44,36 +46,41 @@ local function toggleFly(state)
     end
 end
 
--- FUNGSI NOCLIP
+-- FUNGSI NOCLIP (VELOCITY METHOD - WORK DI SEMUA GAME)
 local function toggleNoclip(state)
     if state then
-        noclipPart = Instance.new("Part")
-        noclipPart.Size = char.HumanoidRootPart.Size
-        noclipPart.CanCollide = false
-        noclipPart.Transparency = 1
-        noclipPart.Parent = char
+        if char and char.HumanoidRootPart then
+            char.HumanoidRootPart.CanCollide = false
+        end
+        -- LOOP BIAR TETAP NOCLIP
+        runService.Stepped:Connect(function()
+            if noclip and char and char.HumanoidRootPart then
+                char.HumanoidRootPart.CanCollide = false
+                char.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
+            end
+        end)
     else
-        if noclipPart then noclipPart:Destroy(); noclipPart = nil end
+        if char and char.HumanoidRootPart then
+            char.HumanoidRootPart.CanCollide = true
+        end
     end
 end
 
--- FUNGSI ESP (LINE + BOX + NAMA KECIL)
+-- FUNGSI ESP (BOX + NAMA + LINE)
 local function toggleESP(state)
     -- Hapus ESP lama
-    for _, obj in pairs(espObjects) do
-        if obj.box then obj.box:Destroy() end
-        if obj.line then obj.line:Destroy() end
-        if obj.tag then obj.tag:Destroy() end
+    for _, line in pairs(espLines) do
+        if line then line:Destroy() end
     end
-    espObjects = {}
+    espLines = {}
     
     if not state then return end
     
-    for _, plr in pairs(game.Players:GetPlayers()) do
+    for _, plr in pairs(players:GetPlayers()) do
         if plr ~= player and plr.Character then
             local root = plr.Character:FindFirstChild("HumanoidRootPart")
             if root then
-                -- BOX ESP (kotak di sekeliling)
+                -- BOX
                 local box = Instance.new("BoxHandleAdornment")
                 box.Size = Vector3.new(4, 5, 2)
                 box.Color3 = Color3.fromRGB(255, 50, 50)
@@ -81,24 +88,24 @@ local function toggleESP(state)
                 box.Parent = plr.Character
                 box.AlwaysOnTop = true
                 box.ZIndex = 10
-                box.Transparency = 0.3
+                box.Transparency = 0.2
                 
-                -- LINE ESP (tali dari player ke target)
+                -- LINE (pakai SelectionBox biar ada tali)
                 local line = Instance.new("SelectionBox")
                 line.Adornee = root
                 line.Color3 = Color3.fromRGB(0, 200, 255)
-                line.LineThickness = 0.05
+                line.LineThickness = 0.08
                 line.Transparency = 0.5
                 line.Parent = plr.Character
                 
-                -- NAMA KECIL + HP (di atas kepala)
+                -- NAMA di atas kepala (kecil)
                 local tag = Instance.new("BillboardGui")
-                tag.Size = UDim2.new(0, 100, 0, 30)
+                tag.Size = UDim2.new(0, 80, 0, 20)
                 tag.Adornee = root
                 tag.Parent = plr.Character
                 tag.AlwaysOnTop = true
                 tag.MaxDistance = 200
-                tag.StudsOffset = Vector3.new(0, 3.5, 0)
+                tag.StudsOffset = Vector3.new(0, 3, 0)
                 
                 local label = Instance.new("TextLabel")
                 label.Size = UDim2.new(1, 0, 1, 0)
@@ -106,26 +113,20 @@ local function toggleESP(state)
                 label.Text = plr.Name .. " ❤" .. (plr.Character.Humanoid and math.floor(plr.Character.Humanoid.Health) or "?")
                 label.TextColor3 = Color3.fromRGB(255, 255, 255)
                 label.Font = Enum.Font.Gotham
-                label.TextSize = 12
+                label.TextSize = 10
                 label.Parent = tag
                 
-                table.insert(espObjects, {
-                    plr = plr,
-                    box = box,
-                    line = line,
-                    tag = tag,
-                    label = label
-                })
+                table.insert(espLines, {box = box, line = line, tag = tag, label = label, plr = plr})
             end
         end
     end
 end
 
--- UPDATE ESP (jarak, hp, line)
+-- UPDATE ESP (LINE PANJANG + HP)
 runService.Heartbeat:Connect(function()
     if esp and char and char.HumanoidRootPart then
         local origin = char.HumanoidRootPart.Position
-        for _, obj in pairs(espObjects) do
+        for _, obj in pairs(espLines) do
             if obj.plr and obj.plr.Character then
                 local root = obj.plr.Character:FindFirstChild("HumanoidRootPart")
                 if root then
@@ -134,10 +135,11 @@ runService.Heartbeat:Connect(function()
                         obj.label.Text = obj.plr.Name .. " ❤" .. math.floor(obj.plr.Character.Humanoid.Health)
                     end
                     
-                    -- Update line (jarak)
+                    -- Update LINE (panjang sesuai jarak)
                     local dist = (root.Position - origin).Magnitude
                     if obj.line then
                         obj.line.Color3 = dist < 50 and Color3.fromRGB(0, 255, 0) or dist < 100 and Color3.fromRGB(255, 255, 0) or Color3.fromRGB(255, 0, 0)
+                        -- Line otomatis panjang dari player ke target (SelectionBox bawaan Roblox)
                     end
                 end
             end
@@ -145,7 +147,7 @@ runService.Heartbeat:Connect(function()
     end
 end)
 
--- FUNGSI FLOATING MENU + RESIZE
+-- FUNGSI MENU (RESIZE + DRAG)
 local function CreateFloatingGUI()
     local sg = Instance.new("ScreenGui")
     sg.Name = "InoryaX"
@@ -159,9 +161,8 @@ local function CreateFloatingGUI()
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = sg
     mainFrame.Active = true
-    mainFrame.Draggable = true
 
-    -- Gradient bg
+    -- Background gradient
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 55)),
@@ -169,17 +170,49 @@ local function CreateFloatingGUI()
     })
     gradient.Parent = mainFrame
 
-    -- Title
+    -- Title (drag di sini)
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 30)
+    title.Size = UDim2.new(1, -30, 0, 30)
+    title.Position = UDim2.new(0, 0, 0, 0)
     title.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
     title.Text = "⚡ INORYA XELEBOT"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 16
     title.Parent = mainFrame
+    
+    -- DRAG FUNCTION (pake UserInputService)
+    local dragging = false
+    local dragStartPos = nil
+    local frameStartPos = nil
+    
+    title.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStartPos = input.Position
+            frameStartPos = mainFrame.Position
+        end
+    end)
+    
+    title.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    uis.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStartPos
+            mainFrame.Position = UDim2.new(
+                frameStartPos.X.Scale,
+                frameStartPos.X.Offset + delta.X,
+                frameStartPos.Y.Scale,
+                frameStartPos.Y.Offset + delta.Y
+            )
+        end
+    end)
 
-    -- Tombol Close
+    -- Close button
     local close = Instance.new("TextButton")
     close.Size = UDim2.new(0, 30, 0, 30)
     close.Position = UDim2.new(1, -30, 0, 0)
@@ -193,31 +226,41 @@ local function CreateFloatingGUI()
         sg:Destroy()
     end)
 
-    -- Tombol Resize (seperti chrome)
+    -- Resize button (kecilin/besarin menu)
     local resizeBtn = Instance.new("TextButton")
     resizeBtn.Size = UDim2.new(0, 25, 0, 25)
-    resizeBtn.Position = UDim2.new(0, 5, 0, 5)
+    resizeBtn.Position = UDim2.new(0, 0, 0, mainFrame.Size.Y.Offset - 25)
     resizeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    resizeBtn.Text = "◢"
+    resizeBtn.Text = "⤡"
     resizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     resizeBtn.Font = Enum.Font.GothamBold
-    resizeBtn.TextSize = 12
+    resizeBtn.TextSize = 14
     resizeBtn.Parent = mainFrame
-    resizeBtn.MouseButton1Down:Connect(function()
-        isResizing = true
+    
+    local isResizing = false
+    local resizeStart = nil
+    local frameStartSize = nil
+    
+    resizeBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isResizing = true
+            resizeStart = input.Position
+            frameStartSize = mainFrame.Size
+        end
     end)
-    resizeBtn.MouseButton1Up:Connect(function()
-        isResizing = false
+    
+    resizeBtn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isResizing = false
+        end
     end)
-
-    -- Resize logic
+    
     uis.InputChanged:Connect(function(input)
         if isResizing and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Delta
-            local newSize = mainFrame.Size + UDim2.new(0, delta.X, 0, delta.Y)
-            if newSize.X.Offset > 150 and newSize.Y.Offset > 250 then
-                mainFrame.Size = newSize
-            end
+            local delta = input.Position - resizeStart
+            local newWidth = math.max(180, frameStartSize.X.Offset + delta.X)
+            local newHeight = math.max(300, frameStartSize.Y.Offset + delta.Y)
+            mainFrame.Size = UDim2.new(0, newWidth, 0, newHeight)
         end
     end)
 
@@ -267,7 +310,7 @@ local function CreateFloatingGUI()
         end)
     end
 
-    -- Speed Value (angka)
+    -- Speed input
     local speedLabel = Instance.new("TextLabel")
     speedLabel.Size = UDim2.new(0.4, 0, 0, 25)
     speedLabel.Position = UDim2.new(0.075, 0, 0.78, 0)
@@ -299,7 +342,7 @@ local function CreateFloatingGUI()
     end)
 end
 
--- MAIN LOOP (FLY GERAK + SPEED)
+-- MAIN LOOP (FLY + SPEED + NOCLIP)
 runService.Heartbeat:Connect(function()
     if char and char.HumanoidRootPart and char.Humanoid then
         -- SPEED
@@ -309,10 +352,10 @@ runService.Heartbeat:Connect(function()
             char.Humanoid.WalkSpeed = 16
         end
 
-        -- FLY (gerak pake WASD + Space + Shift)
+        -- FLY (WASD + SPACE + SHIFT)
         if fly and bodyVel and bodyGyro then
             local moveDir = Vector3.new()
-            local speed = 50
+            local speed = 60
             local forward = char.HumanoidRootPart.CFrame.LookVector
             local right = char.HumanoidRootPart.CFrame.RightVector
             
@@ -327,9 +370,12 @@ runService.Heartbeat:Connect(function()
             bodyGyro.CFrame = CFrame.new(char.HumanoidRootPart.Position, char.HumanoidRootPart.Position + (mouse.Hit.Position - char.HumanoidRootPart.Position))
         end
         
-        -- NOCLIP
-        if noclip and noclipPart then
-            noclipPart.CFrame = char.HumanoidRootPart.CFrame
+        -- NOCLIP (veloctiy biar tembus)
+        if noclip then
+            char.HumanoidRootPart.CanCollide = false
+            char.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
+        else
+            char.HumanoidRootPart.CanCollide = true
         end
     end
 end)
@@ -351,4 +397,4 @@ end)
 
 -- INIT
 CreateFloatingGUI()
-print("✅ INORYA XELEBOT - ULTIMATE EDITION READY!")
+print("✅ INORYA XELEBOT - ULTIMATE FINAL READY!")
