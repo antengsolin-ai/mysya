@@ -4,7 +4,6 @@ local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local mouse = player:GetMouse()
 
--- Variabel
 local fly = false
 local noclip = false
 local esp = false
@@ -13,7 +12,54 @@ local speed = 1
 local bodyVel = nil
 local noclipPart = nil
 
--- GUI Creator
+-- ESP FUNCTION
+local function ToggleESP(state)
+    for _, plr in pairs(game.Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                if state then
+                    local box = Instance.new("BoxHandleAdornment")
+                    box.Size = Vector3.new(4, 6, 2)
+                    box.Color3 = Color3.fromRGB(255, 0, 0)
+                    box.Adornee = root
+                    box.Parent = plr.Character
+                    box.AlwaysOnTop = true
+                    box.ZIndex = 10
+                    
+                    local nameTag = Instance.new("BillboardGui")
+                    nameTag.Size = UDim2.new(0, 200, 0, 50)
+                    nameTag.Adornee = root
+                    nameTag.Parent = plr.Character
+                    nameTag.AlwaysOnTop = true
+                    
+                    local label = Instance.new("TextLabel")
+                    label.Size = UDim2.new(1, 0, 1, 0)
+                    label.BackgroundTransparency = 1
+                    label.Text = plr.Name .. " ❤️" .. plr.Character.Humanoid.Health
+                    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    label.Font = Enum.Font.GothamBold
+                    label.TextSize = 14
+                    label.Parent = nameTag
+                    
+                    if not plr:FindFirstChild("ESPData") then
+                        local data = Instance.new("Folder")
+                        data.Name = "ESPData"
+                        data.Parent = plr
+                        data:SetAttribute("Box", box)
+                        data:SetAttribute("Tag", nameTag)
+                    end
+                else
+                    if plr:FindFirstChild("ESPData") then
+                        plr.ESPData:Destroy()
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- GUI
 local function CreateGUI()
     local sg = Instance.new("ScreenGui")
     sg.Name = "InoryaX"
@@ -84,7 +130,7 @@ local function CreateGUI()
             elseif btn.var == "esp" then
                 esp = not esp
                 b.Text = esp and "ESP [ON]" or "ESP [OFF]"
-                -- (ESP logic simple - lo bisa tambahin sendiri)
+                ToggleESP(esp)
             elseif btn.var == "aimbot" then
                 aimbot = not aimbot
                 b.Text = aimbot and "Aimbot [ON]" or "Aimbot [OFF]"
@@ -92,7 +138,7 @@ local function CreateGUI()
         end)
     end
 
-    -- Speed slider
+    -- Speed
     local speedLabel = Instance.new("TextLabel")
     speedLabel.Size = UDim2.new(0.85, 0, 0, 30)
     speedLabel.Position = UDim2.new(0.075, 0, 0.75, 0)
@@ -120,7 +166,6 @@ local function CreateGUI()
         end
     end)
 
-    -- Close
     local close = Instance.new("TextButton")
     close.Size = UDim2.new(0.2, 0, 0, 30)
     close.Position = UDim2.new(0.8, 0, 0.9, 0)
@@ -149,4 +194,4 @@ game:GetService("RunService").Stepped:Connect(function()
 end)
 
 CreateGUI()
-print("✅ INORYA XELEBOT LOADED FROM GITHUB RAW!")
+print("✅ INORYA XELEBOT LOADED WITH ESP!")
