@@ -1,4 +1,4 @@
---[[ INORYA XELEBOT - DELTA HP VERSION (FULL FITUR, MINUS DRAG) ]]
+--[[ INORYA XELEBOT - DELTA HP SIMPLE VERSION (PASTI MUNCUL) ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -6,9 +6,6 @@ local mouse = player:GetMouse()
 local runService = game:GetService("RunService")
 local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
-local sg = nil
-local mainFrame = nil
-local isMinimized = false
 
 -- Variabel fitur
 local fly = false
@@ -20,6 +17,9 @@ local speedValue = 16
 local bodyVel = nil
 local bodyGyro = nil
 local espData = {}
+local mainFrame = nil
+local sg = nil
+local isMinimized = false
 
 -- FLY
 local function toggleFly(state)
@@ -173,31 +173,23 @@ runService.Heartbeat:Connect(function()
     end
 end)
 
--- ==================== MENU DELTA HP ====================
+-- ==================== MENU DELTA HP (PASTI MUNCUL) ====================
 local function CreateMenu()
-    -- Pake PlayerGui biar pasti muncul di HP
-    local playerGui = player:FindFirstChild("PlayerGui")
-    if not playerGui then
-        playerGui = Instance.new("PlayerGui")
-        playerGui.Parent = player
-    end
-    
+    -- PAKE CoreGui (BIAR PASTI MUNCUL DI DELTA)
     sg = Instance.new("ScreenGui")
     sg.Name = "InoryaX"
-    sg.Parent = playerGui
+    sg.Parent = game.CoreGui
     sg.ResetOnSpawn = false
-    sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-    -- Frame utama (DI TENGAH)
+    -- Frame utama
     mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 280, 0, 400)
     mainFrame.Position = UDim2.new(0.5, -140, 0.5, -200)
     mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = sg
-    mainFrame.Active = true
 
-    -- Title
+    -- Title bar
     local titleBar = Instance.new("Frame")
     titleBar.Size = UDim2.new(1, 0, 0, 30)
     titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
@@ -205,7 +197,6 @@ local function CreateMenu()
 
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -60, 1, 0)
-    title.Position = UDim2.new(0, 0, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "⚡ INORYA XELEBOT"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -388,4 +379,4 @@ end)
 
 -- INIT
 CreateMenu()
-print("✅ INORYA XELEBOT - DELTA HP VERSION READY!")
+print("✅ INORYA XELEBOT - DELTA HP SIMPLE READY!")
