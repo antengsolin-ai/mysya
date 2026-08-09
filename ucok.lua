@@ -1,4 +1,4 @@
---[[ INORYA XELEBOT - DELTA HP (AIMBOT FIX + FOV) ]]
+--[[ INORYA XELEBOT - HP EDITION (JOYSTICK FLY + AIMBOT LOCK) ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -8,7 +8,7 @@ local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
 local camera = workspace.CurrentCamera
 
--- Variabel fitur
+-- VARIABEL
 local fly = false
 local noclip = false
 local esp = false
@@ -22,11 +22,15 @@ local mainFrame = nil
 local sg = nil
 local isMinimized = false
 local fovCircle = nil
-local aimbotTarget = nil
+local joystick = nil
+local joystickBG = nil
+local joystickKnob = nil
+local joystickActive = false
+local joystickPos = Vector2.new(0,0)
 
--- FOV (Field of View) buat aimbot
-local FOV_RADIUS = 150 -- pixel (bisa diubah)
-local AIMBOT_SMOOTH = 0.2 -- kecepatan aim (0.1 - 0.5)
+-- AIMBOT SETTINGS
+local FOV_RADIUS = 200
+local AIMBOT_SMOOTH = 0.15
 
 -- FLY
 local function toggleFly(state)
@@ -43,12 +47,16 @@ local function toggleFly(state)
         bodyGyro.CFrame = char.HumanoidRootPart.CFrame
         
         char.Humanoid.PlatformStand = true
+        
+        -- Bikin joystick kalo belum ada
+        if not joystick then CreateJoystick() end
     else
         if bodyVel then bodyVel:Destroy(); bodyVel = nil end
         if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
         if char and char.Humanoid then
             char.Humanoid.PlatformStand = false
         end
+        if joystick then joystick.Visible = false end
     end
 end
 
@@ -81,7 +89,6 @@ local function toggleESP(state)
         if plr ~= player and plr.Character then
             local root = plr.Character:FindFirstChild("HumanoidRootPart")
             if root then
-                -- BOX
                 local box = Instance.new("BoxHandleAdornment")
                 box.Size = Vector3.new(4, 5, 2)
                 box.Color3 = Color3.fromRGB(255, 50, 50)
@@ -91,7 +98,6 @@ local function toggleESP(state)
                 box.ZIndex = 10
                 box.Transparency = 0.2
                 
-                -- LINE 3D
                 local linePart = Instance.new("Part")
                 linePart.Size = Vector3.new(0.1, 0.1, 1)
                 linePart.BrickColor = BrickColor.new("Bright blue")
@@ -100,7 +106,6 @@ local function toggleESP(state)
                 linePart.CanCollide = false
                 linePart.Parent = plr.Character
                 
-                -- NAMA
                 local tag = Instance.new("BillboardGui")
                 tag.Size = UDim2.new(0, 80, 0, 20)
                 tag.Adornee = root
@@ -157,8 +162,73 @@ runService.Heartbeat:Connect(function()
     end
 end)
 
--- ==================== AIMBOT FIX ====================
--- Fungsi buat dapetin target terdekat dalam FOV
+-- ==================== JOYSTICK FLY HP ====================
+local function CreateJoystick()
+    local sgJoy = Instance.new("ScreenGui")
+    sgJoy.Name = "JoystickFly"
+    sgJoy.Parent = game.CoreGui
+    sgJoy.ResetOnSpawn = false
+
+    joystickBG = Instance.new("ImageLabel")
+    joystickBG.Size = UDim2.new(0, 120, 0, 120)
+    joystickBG.Position = UDim2.new(0.1, 0, 0.8, 0)
+    joystickBG.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    joystickBG.BackgroundTransparency = 0.8
+    joystickBG.Image = "rbxassetid://3570695787"
+    joystickBG.Parent = sgJoy
+    joystickBG.Active = true
+
+    joystickKnob = Instance.new("ImageLabel")
+    joystickKnob.Size = UDim2.new(0, 50, 0, 50)
+    joystickKnob.Position = UDim2.new(0.5, -25, 0.5, -25)
+    joystickKnob.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    joystickKnob.BackgroundTransparency = 0.5
+    joystickKnob.Image = "rbxassetid://3570695787"
+    joystickKnob.Parent = joystickBG
+
+    joystick = sgJoy
+
+    -- Joystick drag
+    local dragging = false
+    local startPos = nil
+    local knobStart = nil
+
+    joystickBG.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            startPos = input.Position
+            knobStart = joystickKnob.Position
+        end
+    end)
+
+    joystickBG.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            joystickKnob.Position = UDim2.new(0.5, -25, 0.5, -25)
+            joystickPos = Vector2.new(0,0)
+        end
+    end)
+
+    uis.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - startPos
+            local maxDist = 40
+            local dist = math.min(delta.Magnitude, maxDist)
+            local angle = math.atan2(delta.Y, delta.X)
+            
+            local offsetX = math.cos(angle) * dist
+            local offsetY = math.sin(angle) * dist
+            
+            joystickKnob.Position = UDim2.new(0.5, -25 + offsetX, 0.5, -25 + offsetY)
+            joystickPos = Vector2.new(
+                math.clamp(delta.X / maxDist, -1, 1),
+                math.clamp(delta.Y / maxDist, -1, 1)
+            )
+        end
+    end)
+end
+
+-- ==================== AIMBOT HP (LOCK + SMOOTH) ====================
 local function GetClosestTarget()
     if not char or not char.HumanoidRootPart then return nil end
     
@@ -170,15 +240,12 @@ local function GetClosestTarget()
         if data.plr and data.plr.Character then
             local root = data.plr.Character:FindFirstChild("HumanoidRootPart")
             if root then
-                -- Cek jarak 3D
                 local dist3D = (root.Position - origin).Magnitude
-                if dist3D > 500 then continue end -- skip kalo kebanyakan
+                if dist3D > 500 then continue end
                 
-                -- Konversi ke posisi layar
                 local screenPos, onScreen = camera:WorldToScreenPoint(root.Position)
                 if not onScreen then continue end
                 
-                -- Hitung jarak dari center layar (FOV)
                 local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
                 local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
                 
@@ -193,29 +260,23 @@ local function GetClosestTarget()
     return closest
 end
 
--- Aimbot loop (pake Heartbeat biar smooth)
+-- Aimbot loop
 runService.Heartbeat:Connect(function()
     if aimbot and char and char.HumanoidRootPart then
         local target = GetClosestTarget()
         if target then
-            -- Ambil posisi target di layar
             local screenPos, onScreen = camera:WorldToScreenPoint(target.Position)
             if onScreen then
-                -- Pindahin mouse ke target (pake tween biar smooth)
                 local currentPos = uis:GetMouseLocation()
                 local targetPos = Vector2.new(screenPos.X, screenPos.Y)
                 local delta = (targetPos - currentPos) * AIMBOT_SMOOTH
-                
-                -- Move mouse (pake mouse.Move)
-                if uis.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
-                    mouse.Move(targetPos)
-                end
+                mouse.Move(targetPos)
             end
         end
     end
 end)
 
--- FOV Circle (visualisasi aimbot)
+-- FOV Circle
 local function CreateFOV()
     if fovCircle then fovCircle:Destroy() end
     if not aimbot then return end
@@ -230,7 +291,6 @@ local function CreateFOV()
     fovCircle.Parent = camera
 end
 
--- Update FOV position setiap frame
 runService.RenderStepped:Connect(function()
     if aimbot and fovCircle then
         fovCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
@@ -240,7 +300,6 @@ runService.RenderStepped:Connect(function()
     end
 end)
 
--- Toggle Aimbot
 local function toggleAimbot(state)
     aimbot = state
     if state then
@@ -250,7 +309,7 @@ local function toggleAimbot(state)
     end
 end
 
--- ==================== MENU DELTA HP ====================
+-- ==================== MENU HP ====================
 local function CreateMenu()
     sg = Instance.new("ScreenGui")
     sg.Name = "InoryaX"
@@ -264,7 +323,6 @@ local function CreateMenu()
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = sg
 
-    -- Title bar
     local titleBar = Instance.new("Frame")
     titleBar.Size = UDim2.new(1, 0, 0, 30)
     titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
@@ -279,7 +337,6 @@ local function CreateMenu()
     title.TextSize = 16
     title.Parent = titleBar
 
-    -- Close
     local close = Instance.new("TextButton")
     close.Size = UDim2.new(0, 30, 1, 0)
     close.Position = UDim2.new(1, -30, 0, 0)
@@ -292,9 +349,9 @@ local function CreateMenu()
     close.MouseButton1Click:Connect(function()
         sg:Destroy()
         if fovCircle then fovCircle:Destroy(); fovCircle = nil end
+        if joystick then joystick:Destroy(); joystick = nil end
     end)
 
-    -- Minimize
     local minBtn = Instance.new("TextButton")
     minBtn.Size = UDim2.new(0, 30, 1, 0)
     minBtn.Position = UDim2.new(1, -60, 0, 0)
@@ -325,7 +382,6 @@ local function CreateMenu()
         end
     end)
 
-    -- Tombol fitur
     local toggles = {
         {name = "Fly", var = "fly"},
         {name = "NoClip", var = "noclip"},
@@ -372,7 +428,6 @@ local function CreateMenu()
         end)
     end
 
-    -- Speed input
     local speedLabel = Instance.new("TextLabel")
     speedLabel.Size = UDim2.new(0.4, 0, 0, 25)
     speedLabel.Position = UDim2.new(0.075, 0, 0.78, 0)
@@ -413,16 +468,22 @@ runService.Heartbeat:Connect(function()
             char.Humanoid.WalkSpeed = 16
         end
 
-        if fly and bodyVel and bodyGyro then
+        if fly and bodyVel and bodyGyro and joystick then
             local moveDir = Vector3.new()
             local speed = 60
             local forward = char.HumanoidRootPart.CFrame.LookVector
             local right = char.HumanoidRootPart.CFrame.RightVector
             
-            if uis:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + forward * speed end
-            if uis:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - forward * speed end
-            if uis:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - right * speed end
-            if uis:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + right * speed end
+            -- Joystick control
+            local joyX = joystickPos.X
+            local joyY = joystickPos.Y
+            
+            if math.abs(joyX) > 0.1 or math.abs(joyY) > 0.1 then
+                moveDir = moveDir + forward * joyY * speed
+                moveDir = moveDir + right * joyX * speed
+            end
+            
+            -- Tombol naik/turun pake layar (tap)
             if uis:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, speed, 0) end
             if uis:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, speed, 0) end
             
@@ -456,4 +517,4 @@ end)
 
 -- INIT
 CreateMenu()
-print("✅ INORYA XELEBOT - DELTA HP (AIMBOT FIX + FOV) READY!")
+print("✅ INORYA XELEBOT - HP EDITION (JOYSTICK FLY + AIMBOT LOCK) READY!")
