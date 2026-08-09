@@ -1,4 +1,4 @@
---[[ INORYA XELEBOT - ULTIMATE FINAL (FIX ALL) ]]
+--[[ INORYA XELEBOT - ULTIMATE FINAL (MINIMIZE + FLY + ESP LINE + AIMBOT) ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -16,13 +16,12 @@ local speedEnabled = false
 local speedValue = 16
 local bodyVel = nil
 local bodyGyro = nil
-local espLines = {}
+local espData = {}
 local mainFrame = nil
-local isResizing = false
-local dragStart = nil
-local dragFrame = nil
+local isMinimized = false
+local sg = nil
 
--- FUNGSI FLY (WASD + SPACE + SHIFT)
+-- FUNGSI FLY (GERAK PAKE WASD + SPACE + SHIFT)
 local function toggleFly(state)
     if state then
         if not char or not char.HumanoidRootPart then return end
@@ -46,19 +45,12 @@ local function toggleFly(state)
     end
 end
 
--- FUNGSI NOCLIP (VELOCITY METHOD - WORK DI SEMUA GAME)
+-- FUNGSI NOCLIP
 local function toggleNoclip(state)
     if state then
         if char and char.HumanoidRootPart then
             char.HumanoidRootPart.CanCollide = false
         end
-        -- LOOP BIAR TETAP NOCLIP
-        runService.Stepped:Connect(function()
-            if noclip and char and char.HumanoidRootPart then
-                char.HumanoidRootPart.CanCollide = false
-                char.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
-            end
-        end)
     else
         if char and char.HumanoidRootPart then
             char.HumanoidRootPart.CanCollide = true
@@ -66,13 +58,15 @@ local function toggleNoclip(state)
     end
 end
 
--- FUNGSI ESP (BOX + NAMA + LINE)
+-- FUNGSI ESP (BOX + NAMA + LINE 3D)
 local function toggleESP(state)
-    -- Hapus ESP lama
-    for _, line in pairs(espLines) do
-        if line then line:Destroy() end
+    for _, data in pairs(espData) do
+        if data.box then data.box:Destroy() end
+        if data.line then data.line:Destroy() end
+        if data.tag then data.tag:Destroy() end
+        if data.part then data.part:Destroy() end
     end
-    espLines = {}
+    espData = {}
     
     if not state then return end
     
@@ -90,21 +84,25 @@ local function toggleESP(state)
                 box.ZIndex = 10
                 box.Transparency = 0.2
                 
-                -- LINE (pakai SelectionBox biar ada tali)
-                local line = Instance.new("SelectionBox")
-                line.Adornee = root
-                line.Color3 = Color3.fromRGB(0, 200, 255)
-                line.LineThickness = 0.08
-                line.Transparency = 0.5
-                line.Parent = plr.Character
+                -- LINE (bikin part 3D biar keliatan kayak tali)
+                local linePart = Instance.new("Part")
+                linePart.Size = Vector3.new(0.1, 0.1, 1)
+                linePart.BrickColor = BrickColor.new("Bright blue")
+                linePart.Material = Enum.Material.Neon
+                linePart.Anchored = true
+                linePart.CanCollide = false
+                linePart.Parent = plr.Character
                 
-                -- NAMA di atas kepala (kecil)
+                local lineAttachment = Instance.new("Attachment")
+                lineAttachment.Parent = linePart
+                
+                -- NAMA + HP (kecil di atas kepala)
                 local tag = Instance.new("BillboardGui")
                 tag.Size = UDim2.new(0, 80, 0, 20)
                 tag.Adornee = root
                 tag.Parent = plr.Character
                 tag.AlwaysOnTop = true
-                tag.MaxDistance = 200
+                tag.MaxDistance = 300
                 tag.StudsOffset = Vector3.new(0, 3, 0)
                 
                 local label = Instance.new("TextLabel")
@@ -116,30 +114,40 @@ local function toggleESP(state)
                 label.TextSize = 10
                 label.Parent = tag
                 
-                table.insert(espLines, {box = box, line = line, tag = tag, label = label, plr = plr})
+                table.insert(espData, {
+                    plr = plr,
+                    box = box,
+                    line = linePart,
+                    tag = tag,
+                    label = label,
+                    root = root
+                })
             end
         end
     end
 end
 
--- UPDATE ESP (LINE PANJANG + HP)
+-- UPDATE ESP (LINE + HP)
 runService.Heartbeat:Connect(function()
     if esp and char and char.HumanoidRootPart then
         local origin = char.HumanoidRootPart.Position
-        for _, obj in pairs(espLines) do
-            if obj.plr and obj.plr.Character then
-                local root = obj.plr.Character:FindFirstChild("HumanoidRootPart")
+        for _, data in pairs(espData) do
+            if data.plr and data.plr.Character then
+                local root = data.plr.Character:FindFirstChild("HumanoidRootPart")
                 if root then
                     -- Update HP
-                    if obj.plr.Character.Humanoid then
-                        obj.label.Text = obj.plr.Name .. " ❤" .. math.floor(obj.plr.Character.Humanoid.Health)
+                    if data.plr.Character.Humanoid then
+                        data.label.Text = data.plr.Name .. " ❤" .. math.floor(data.plr.Character.Humanoid.Health)
                     end
                     
-                    -- Update LINE (panjang sesuai jarak)
-                    local dist = (root.Position - origin).Magnitude
-                    if obj.line then
-                        obj.line.Color3 = dist < 50 and Color3.fromRGB(0, 255, 0) or dist < 100 and Color3.fromRGB(255, 255, 0) or Color3.fromRGB(255, 0, 0)
-                        -- Line otomatis panjang dari player ke target (SelectionBox bawaan Roblox)
+                    -- Update LINE (tali antara player dan target)
+                    if data.line then
+                        local dist = (root.Position - origin).Magnitude
+                        local midPoint = (origin + root.Position) / 2
+                        data.line.Position = midPoint
+                        data.line.CFrame = CFrame.lookAt(midPoint, root.Position)
+                        data.line.Size = Vector3.new(0.1, 0.1, dist)
+                        data.line.BrickColor = dist < 50 and BrickColor.new("Bright green") or dist < 100 and BrickColor.new("Bright yellow") or BrickColor.new("Bright red")
                     end
                 end
             end
@@ -147,9 +155,38 @@ runService.Heartbeat:Connect(function()
     end
 end)
 
--- FUNGSI MENU (RESIZE + DRAG)
+-- FUNGSI AIMBOT (SILENT AIM - AMAN)
+local function toggleAimbot(state)
+    aimbot = state
+end
+
+-- AIMBOT LOOP (SILENT AIM)
+runService.Heartbeat:Connect(function()
+    if aimbot and char and char.HumanoidRootPart then
+        local closest = nil
+        local minDist = 1e9
+        for _, data in pairs(espData) do
+            if data.plr and data.plr.Character then
+                local root = data.plr.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local dist = (root.Position - char.HumanoidRootPart.Position).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        closest = root
+                    end
+                end
+            end
+        end
+        if closest then
+            -- Silent aim: arahkan mouse ke target tanpa deteksi
+            mouse.Hit = CFrame.new(mouse.Hit.Position, closest.Position)
+        end
+    end
+end)
+
+-- FUNGSI MENU (MINIMIZE + DRAG + RESIZE)
 local function CreateFloatingGUI()
-    local sg = Instance.new("ScreenGui")
+    sg = Instance.new("ScreenGui")
     sg.Name = "InoryaX"
     sg.Parent = game.CoreGui
     sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -162,7 +199,7 @@ local function CreateFloatingGUI()
     mainFrame.Parent = sg
     mainFrame.Active = true
 
-    -- Background gradient
+    -- Gradient background
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 55)),
@@ -170,97 +207,67 @@ local function CreateFloatingGUI()
     })
     gradient.Parent = mainFrame
 
-    -- Title (drag di sini)
+    -- Title bar (drag)
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1, 0, 0, 30)
+    titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    titleBar.Parent = mainFrame
+    titleBar.Active = true
+    titleBar.Draggable = true
+
+    -- Title text
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -30, 0, 30)
+    title.Size = UDim2.new(1, -60, 1, 0)
     title.Position = UDim2.new(0, 0, 0, 0)
-    title.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    title.BackgroundTransparency = 1
     title.Text = "⚡ INORYA XELEBOT"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 16
-    title.Parent = mainFrame
-    
-    -- DRAG FUNCTION (pake UserInputService)
-    local dragging = false
-    local dragStartPos = nil
-    local frameStartPos = nil
-    
-    title.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStartPos = input.Position
-            frameStartPos = mainFrame.Position
-        end
-    end)
-    
-    title.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-    
-    uis.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStartPos
-            mainFrame.Position = UDim2.new(
-                frameStartPos.X.Scale,
-                frameStartPos.X.Offset + delta.X,
-                frameStartPos.Y.Scale,
-                frameStartPos.Y.Offset + delta.Y
-            )
-        end
-    end)
+    title.Parent = titleBar
 
     -- Close button
     local close = Instance.new("TextButton")
-    close.Size = UDim2.new(0, 30, 0, 30)
+    close.Size = UDim2.new(0, 30, 1, 0)
     close.Position = UDim2.new(1, -30, 0, 0)
     close.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
     close.Text = "✕"
     close.TextColor3 = Color3.fromRGB(255, 255, 255)
     close.Font = Enum.Font.GothamBold
     close.TextSize = 14
-    close.Parent = mainFrame
+    close.Parent = titleBar
     close.MouseButton1Click:Connect(function()
         sg:Destroy()
     end)
 
-    -- Resize button (kecilin/besarin menu)
-    local resizeBtn = Instance.new("TextButton")
-    resizeBtn.Size = UDim2.new(0, 25, 0, 25)
-    resizeBtn.Position = UDim2.new(0, 0, 0, mainFrame.Size.Y.Offset - 25)
-    resizeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    resizeBtn.Text = "⤡"
-    resizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    resizeBtn.Font = Enum.Font.GothamBold
-    resizeBtn.TextSize = 14
-    resizeBtn.Parent = mainFrame
-    
-    local isResizing = false
-    local resizeStart = nil
-    local frameStartSize = nil
-    
-    resizeBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isResizing = true
-            resizeStart = input.Position
-            frameStartSize = mainFrame.Size
-        end
-    end)
-    
-    resizeBtn.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isResizing = false
-        end
-    end)
-    
-    uis.InputChanged:Connect(function(input)
-        if isResizing and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - resizeStart
-            local newWidth = math.max(180, frameStartSize.X.Offset + delta.X)
-            local newHeight = math.max(300, frameStartSize.Y.Offset + delta.Y)
-            mainFrame.Size = UDim2.new(0, newWidth, 0, newHeight)
+    -- Minimize button (kecilin menu)
+    local minBtn = Instance.new("TextButton")
+    minBtn.Size = UDim2.new(0, 30, 1, 0)
+    minBtn.Position = UDim2.new(1, -60, 0, 0)
+    minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    minBtn.Text = "_"
+    minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minBtn.Font = Enum.Font.GothamBold
+    minBtn.TextSize = 18
+    minBtn.Parent = titleBar
+    minBtn.MouseButton1Click:Connect(function()
+        isMinimized = not isMinimized
+        if isMinimized then
+            mainFrame.Size = UDim2.new(0, 280, 0, 30)
+            for _, child in pairs(mainFrame:GetChildren()) do
+                if child ~= titleBar then
+                    child.Visible = false
+                end
+            end
+            minBtn.Text = "□"
+        else
+            mainFrame.Size = UDim2.new(0, 280, 0, 420)
+            for _, child in pairs(mainFrame:GetChildren()) do
+                if child ~= titleBar then
+                    child.Visible = true
+                end
+            end
+            minBtn.Text = "_"
         end
     end)
 
@@ -276,7 +283,7 @@ local function CreateFloatingGUI()
     for i, btn in ipairs(toggles) do
         local b = Instance.new("TextButton")
         b.Size = UDim2.new(0.85, 0, 0, 35)
-        b.Position = UDim2.new(0.075, 0, 0.10 + (i-1)*0.13, 0)
+        b.Position = UDim2.new(0.075, 0, 0.08 + (i-1)*0.13, 0)
         b.BackgroundColor3 = Color3.fromRGB(50, 50, 75)
         b.Text = btn.name .. " [OFF]"
         b.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -300,6 +307,7 @@ local function CreateFloatingGUI()
             elseif btn.var == "aimbot" then
                 aimbot = not aimbot
                 b.Text = aimbot and "Aimbot [ON]" or "Aimbot [OFF]"
+                toggleAimbot(aimbot)
             elseif btn.var == "speed" then
                 speedEnabled = not speedEnabled
                 b.Text = speedEnabled and "Speed [ON]" or "Speed [OFF]"
