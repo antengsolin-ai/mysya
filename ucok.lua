@@ -1,4 +1,4 @@
---[[ INORYA XELEBOT - ULTIMATE FINAL (MINIMIZE + FLY + ESP LINE + AIMBOT) ]]
+--[[ INORYA XELEBOT - FINAL WORK 100% ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -20,8 +20,12 @@ local espData = {}
 local mainFrame = nil
 local isMinimized = false
 local sg = nil
+local dragging = false
+local dragInput = nil
+local dragStart = nil
+local startPos = nil
 
--- FUNGSI FLY (GERAK PAKE WASD + SPACE + SHIFT)
+-- FUNGSI FLY
 local function toggleFly(state)
     if state then
         if not char or not char.HumanoidRootPart then return end
@@ -58,7 +62,7 @@ local function toggleNoclip(state)
     end
 end
 
--- FUNGSI ESP (BOX + NAMA + LINE 3D)
+-- FUNGSI ESP
 local function toggleESP(state)
     for _, data in pairs(espData) do
         if data.box then data.box:Destroy() end
@@ -84,7 +88,7 @@ local function toggleESP(state)
                 box.ZIndex = 10
                 box.Transparency = 0.2
                 
-                -- LINE (bikin part 3D biar keliatan kayak tali)
+                -- LINE 3D
                 local linePart = Instance.new("Part")
                 linePart.Size = Vector3.new(0.1, 0.1, 1)
                 linePart.BrickColor = BrickColor.new("Bright blue")
@@ -93,10 +97,7 @@ local function toggleESP(state)
                 linePart.CanCollide = false
                 linePart.Parent = plr.Character
                 
-                local lineAttachment = Instance.new("Attachment")
-                lineAttachment.Parent = linePart
-                
-                -- NAMA + HP (kecil di atas kepala)
+                -- NAMA
                 local tag = Instance.new("BillboardGui")
                 tag.Size = UDim2.new(0, 80, 0, 20)
                 tag.Adornee = root
@@ -127,7 +128,7 @@ local function toggleESP(state)
     end
 end
 
--- UPDATE ESP (LINE + HP)
+-- UPDATE ESP LINE
 runService.Heartbeat:Connect(function()
     if esp and char and char.HumanoidRootPart then
         local origin = char.HumanoidRootPart.Position
@@ -135,12 +136,10 @@ runService.Heartbeat:Connect(function()
             if data.plr and data.plr.Character then
                 local root = data.plr.Character:FindFirstChild("HumanoidRootPart")
                 if root then
-                    -- Update HP
                     if data.plr.Character.Humanoid then
                         data.label.Text = data.plr.Name .. " ❤" .. math.floor(data.plr.Character.Humanoid.Health)
                     end
                     
-                    -- Update LINE (tali antara player dan target)
                     if data.line then
                         local dist = (root.Position - origin).Magnitude
                         local midPoint = (origin + root.Position) / 2
@@ -155,12 +154,7 @@ runService.Heartbeat:Connect(function()
     end
 end)
 
--- FUNGSI AIMBOT (SILENT AIM - AMAN)
-local function toggleAimbot(state)
-    aimbot = state
-end
-
--- AIMBOT LOOP (SILENT AIM)
+-- AIMBOT
 runService.Heartbeat:Connect(function()
     if aimbot and char and char.HumanoidRootPart then
         local closest = nil
@@ -178,13 +172,12 @@ runService.Heartbeat:Connect(function()
             end
         end
         if closest then
-            -- Silent aim: arahkan mouse ke target tanpa deteksi
             mouse.Hit = CFrame.new(mouse.Hit.Position, closest.Position)
         end
     end
 end)
 
--- FUNGSI MENU (MINIMIZE + DRAG + RESIZE)
+-- FUNGSI MENU (MINIMIZE + DRAG MANUAL)
 local function CreateFloatingGUI()
     sg = Instance.new("ScreenGui")
     sg.Name = "InoryaX"
@@ -199,7 +192,7 @@ local function CreateFloatingGUI()
     mainFrame.Parent = sg
     mainFrame.Active = true
 
-    -- Gradient background
+    -- Background
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 55)),
@@ -207,15 +200,14 @@ local function CreateFloatingGUI()
     })
     gradient.Parent = mainFrame
 
-    -- Title bar (drag)
+    -- Title bar (drag manual)
     local titleBar = Instance.new("Frame")
     titleBar.Size = UDim2.new(1, 0, 0, 30)
     titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
     titleBar.Parent = mainFrame
     titleBar.Active = true
-    titleBar.Draggable = true
 
-    -- Title text
+    -- Title
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -60, 1, 0)
     title.Position = UDim2.new(0, 0, 0, 0)
@@ -225,6 +217,33 @@ local function CreateFloatingGUI()
     title.Font = Enum.Font.GothamBold
     title.TextSize = 16
     title.Parent = titleBar
+
+    -- DRAG MANUAL (pake mouse)
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
+        end
+    end)
+    
+    titleBar.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    uis.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
 
     -- Close button
     local close = Instance.new("TextButton")
@@ -240,7 +259,7 @@ local function CreateFloatingGUI()
         sg:Destroy()
     end)
 
-    -- Minimize button (kecilin menu)
+    -- Minimize button
     local minBtn = Instance.new("TextButton")
     minBtn.Size = UDim2.new(0, 30, 1, 0)
     minBtn.Position = UDim2.new(1, -60, 0, 0)
@@ -307,7 +326,6 @@ local function CreateFloatingGUI()
             elseif btn.var == "aimbot" then
                 aimbot = not aimbot
                 b.Text = aimbot and "Aimbot [ON]" or "Aimbot [OFF]"
-                toggleAimbot(aimbot)
             elseif btn.var == "speed" then
                 speedEnabled = not speedEnabled
                 b.Text = speedEnabled and "Speed [ON]" or "Speed [OFF]"
@@ -350,17 +368,15 @@ local function CreateFloatingGUI()
     end)
 end
 
--- MAIN LOOP (FLY + SPEED + NOCLIP)
+-- MAIN LOOP
 runService.Heartbeat:Connect(function()
     if char and char.HumanoidRootPart and char.Humanoid then
-        -- SPEED
         if speedEnabled then
             char.Humanoid.WalkSpeed = speedValue
         else
             char.Humanoid.WalkSpeed = 16
         end
 
-        -- FLY (WASD + SPACE + SHIFT)
         if fly and bodyVel and bodyGyro then
             local moveDir = Vector3.new()
             local speed = 60
@@ -378,7 +394,6 @@ runService.Heartbeat:Connect(function()
             bodyGyro.CFrame = CFrame.new(char.HumanoidRootPart.Position, char.HumanoidRootPart.Position + (mouse.Hit.Position - char.HumanoidRootPart.Position))
         end
         
-        -- NOCLIP (veloctiy biar tembus)
         if noclip then
             char.HumanoidRootPart.CanCollide = false
             char.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
@@ -388,7 +403,7 @@ runService.Heartbeat:Connect(function()
     end
 end)
 
--- RE-APPLY SAAT RESPAWN
+-- RESPAWN
 player.CharacterAdded:Connect(function(newChar)
     char = newChar
     wait(0.5)
@@ -405,4 +420,4 @@ end)
 
 -- INIT
 CreateFloatingGUI()
-print("✅ INORYA XELEBOT - ULTIMATE FINAL READY!")
+print("✅ INORYA XELEBOT - FINAL WORK 100%!")
