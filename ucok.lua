@@ -1,4 +1,4 @@
---[[ INORYA XELEBOT - DELTA HP SIMPLE VERSION (PASTI MUNCUL) ]]
+--[[ INORYA XELEBOT - DELTA HP (AIMBOT FIX + FOV) ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -6,6 +6,7 @@ local mouse = player:GetMouse()
 local runService = game:GetService("RunService")
 local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
+local camera = workspace.CurrentCamera
 
 -- Variabel fitur
 local fly = false
@@ -20,6 +21,12 @@ local espData = {}
 local mainFrame = nil
 local sg = nil
 local isMinimized = false
+local fovCircle = nil
+local aimbotTarget = nil
+
+-- FOV (Field of View) buat aimbot
+local FOV_RADIUS = 150 -- pixel (bisa diubah)
+local AIMBOT_SMOOTH = 0.2 -- kecepatan aim (0.1 - 0.5)
 
 -- FLY
 local function toggleFly(state)
@@ -150,38 +157,106 @@ runService.Heartbeat:Connect(function()
     end
 end)
 
--- AIMBOT
-runService.Heartbeat:Connect(function()
-    if aimbot and char and char.HumanoidRootPart then
-        local closest = nil
-        local minDist = 1e9
-        for _, data in pairs(espData) do
-            if data.plr and data.plr.Character then
-                local root = data.plr.Character:FindFirstChild("HumanoidRootPart")
-                if root then
-                    local dist = (root.Position - char.HumanoidRootPart.Position).Magnitude
-                    if dist < minDist then
-                        minDist = dist
-                        closest = root
-                    end
+-- ==================== AIMBOT FIX ====================
+-- Fungsi buat dapetin target terdekat dalam FOV
+local function GetClosestTarget()
+    if not char or not char.HumanoidRootPart then return nil end
+    
+    local origin = char.HumanoidRootPart.Position
+    local closest = nil
+    local minDist = FOV_RADIUS
+    
+    for _, data in pairs(espData) do
+        if data.plr and data.plr.Character then
+            local root = data.plr.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                -- Cek jarak 3D
+                local dist3D = (root.Position - origin).Magnitude
+                if dist3D > 500 then continue end -- skip kalo kebanyakan
+                
+                -- Konversi ke posisi layar
+                local screenPos, onScreen = camera:WorldToScreenPoint(root.Position)
+                if not onScreen then continue end
+                
+                -- Hitung jarak dari center layar (FOV)
+                local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+                local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                
+                if dist2D < minDist then
+                    minDist = dist2D
+                    closest = root
                 end
             end
         end
-        if closest then
-            mouse.Hit = CFrame.new(mouse.Hit.Position, closest.Position)
+    end
+    
+    return closest
+end
+
+-- Aimbot loop (pake Heartbeat biar smooth)
+runService.Heartbeat:Connect(function()
+    if aimbot and char and char.HumanoidRootPart then
+        local target = GetClosestTarget()
+        if target then
+            -- Ambil posisi target di layar
+            local screenPos, onScreen = camera:WorldToScreenPoint(target.Position)
+            if onScreen then
+                -- Pindahin mouse ke target (pake tween biar smooth)
+                local currentPos = uis:GetMouseLocation()
+                local targetPos = Vector2.new(screenPos.X, screenPos.Y)
+                local delta = (targetPos - currentPos) * AIMBOT_SMOOTH
+                
+                -- Move mouse (pake mouse.Move)
+                if uis.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
+                    mouse.Move(targetPos)
+                end
+            end
         end
     end
 end)
 
--- ==================== MENU DELTA HP (PASTI MUNCUL) ====================
+-- FOV Circle (visualisasi aimbot)
+local function CreateFOV()
+    if fovCircle then fovCircle:Destroy() end
+    if not aimbot then return end
+    
+    fovCircle = Drawing.new("Circle")
+    fovCircle.Radius = FOV_RADIUS
+    fovCircle.Thickness = 2
+    fovCircle.Color = Color3.fromRGB(0, 255, 0)
+    fovCircle.Filled = false
+    fovCircle.Visible = true
+    fovCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+    fovCircle.Parent = camera
+end
+
+-- Update FOV position setiap frame
+runService.RenderStepped:Connect(function()
+    if aimbot and fovCircle then
+        fovCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+        fovCircle.Visible = true
+    elseif fovCircle then
+        fovCircle.Visible = false
+    end
+end)
+
+-- Toggle Aimbot
+local function toggleAimbot(state)
+    aimbot = state
+    if state then
+        CreateFOV()
+    else
+        if fovCircle then fovCircle:Destroy(); fovCircle = nil end
+    end
+end
+
+-- ==================== MENU DELTA HP ====================
 local function CreateMenu()
-    -- PAKE CoreGui (BIAR PASTI MUNCUL DI DELTA)
     sg = Instance.new("ScreenGui")
     sg.Name = "InoryaX"
     sg.Parent = game.CoreGui
     sg.ResetOnSpawn = false
 
-    -- Frame utama
     mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 280, 0, 400)
     mainFrame.Position = UDim2.new(0.5, -140, 0.5, -200)
@@ -216,6 +291,7 @@ local function CreateMenu()
     close.Parent = titleBar
     close.MouseButton1Click:Connect(function()
         sg:Destroy()
+        if fovCircle then fovCircle:Destroy(); fovCircle = nil end
     end)
 
     -- Minimize
@@ -285,6 +361,7 @@ local function CreateMenu()
             elseif btn.var == "aimbot" then
                 aimbot = not aimbot
                 b.Text = aimbot and "Aimbot [ON]" or "Aimbot [OFF]"
+                toggleAimbot(aimbot)
             elseif btn.var == "speed" then
                 speedEnabled = not speedEnabled
                 b.Text = speedEnabled and "Speed [ON]" or "Speed [OFF]"
@@ -379,4 +456,4 @@ end)
 
 -- INIT
 CreateMenu()
-print("✅ INORYA XELEBOT - DELTA HP SIMPLE READY!")
+print("✅ INORYA XELEBOT - DELTA HP (AIMBOT FIX + FOV) READY!")
