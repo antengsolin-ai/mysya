@@ -16,7 +16,7 @@ local keyDuration = "0 Days"
 local keyExpiry = ""
 local isKeyValid = false
 
--- ==================== FUNGSI CEK KEY (PAKE SYNAPSE REQUEST) ====================
+-- ==================== FUNGSI CEK KEY (SIMPLE + CONTENT-TYPE) ====================
 local function CheckKey(key)
     if not key or key == "" then 
         print("⚠️ Key kosong!")
@@ -26,63 +26,63 @@ local function CheckKey(key)
     local url = "https://bowarrowapjir.my.id/panel/api.php?key=" .. key
     print("📡 Mengirim request ke: " .. url)
     
-    local success, response = pcall(function()
-        -- CEK FUNGSI YANG TERSEDIA
-        if syn and syn.request then
-            -- Pake syn.request (Synapse X / Delta)
-            local result = syn.request({
-                Url = url,
-                Method = "GET",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                }
-            })
-            return result.Body
-        elseif request then
-            -- Pake request (executor lain)
-            local result = request({
-                Url = url,
-                Method = "GET",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                }
-            })
-            return result.Body
-        else
-            -- Fallback ke HttpService (kalo gak diblokir)
-            return game:GetService("HttpService"):GetAsync(url)
-        end
+    local success = false
+    local response = nil
+    
+    -- PAKE HttpService (paling umum di Delta)
+    pcall(function()
+        local httpService = game:GetService("HttpService")
+        response = httpService:GetAsync(url)
+        success = true
     end)
     
-    if success and response then
-        print("📥 Response dari server: " .. response)
-        
-        -- Coba parse JSON
-        local data = http:JSONDecode(response)
-        if data then
-            print("✅ JSON terparse: ", data)
-            if data.success == true and data.valid == true then
-                keyStatus = "✅ Active"
-                keyExpiry = data.expiry or "Unknown"
-                keyDuration = "Exp: " .. (data.expiry_text or keyExpiry)
-                isKeyValid = true
-                return true
-            else
-                local errMsg = data.message or "Invalid key"
-                keyStatus = "❌ " .. errMsg
-                keyDuration = "Expired"
-                isKeyValid = false
-                return false
+    -- Kalo gagal, coba method syn.request
+    if not success then
+        pcall(function()
+            if syn and syn.request then
+                local result = syn.request({
+                    Url = url,
+                    Method = "GET",
+                    Headers = {
+                        ["Content-Type"] = "application/json"
+                    }
+                })
+                response = result.Body
+                success = true
             end
+        end)
+    end
+    
+    -- Kalo semua gagal, kasih error
+    if not success or not response then
+        print("❌ Gagal menghubungi API!")
+        keyStatus = "⚠️ HTTP Error"
+        keyDuration = "Check Failed"
+        isKeyValid = false
+        return false
+    end
+    
+    print("📥 Response dari server: " .. response)
+    
+    -- Coba parse JSON
+    local data = http:JSONDecode(response)
+    if data then
+        print("✅ JSON terparse: ", data)
+        if data.success == true and data.valid == true then
+            keyStatus = "✅ Active"
+            keyExpiry = data.expiry or "Unknown"
+            keyDuration = "Exp: " .. (data.expiry_text or keyExpiry)
+            isKeyValid = true
+            return true
         else
-            keyStatus = "⚠️ Response bukan JSON"
-            keyDuration = "Check Failed"
+            local errMsg = data.message or "Invalid key"
+            keyStatus = "❌ " .. errMsg
+            keyDuration = "Expired"
             isKeyValid = false
             return false
         end
     else
-        print("❌ Gagal menghubungi API: " .. tostring(response))
-        keyStatus = "⚠️ API Error (HTTP: " .. tostring(response) .. ")"
+        keyStatus = "⚠️ Response bukan JSON"
         keyDuration = "Check Failed"
         isKeyValid = false
         return false
