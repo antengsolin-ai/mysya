@@ -1,4 +1,4 @@
---[[ INORYA XELEBOT - HP ULTIMATE (FOV SLIDER + HS RATIO + ESP RENDER) ]]
+--[[ INORYA XELEBOT - HP FINAL (DRAG MENU + ESP AUTO + AIMBOT + KEY) ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -7,8 +7,9 @@ local runService = game:GetService("RunService")
 local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
 local camera = workspace.CurrentCamera
+local http = game:GetService("HttpService")
 
--- VARIABEL
+-- VARIABEL FITUR
 local fly = false
 local noclip = false
 local esp = false
@@ -25,23 +26,52 @@ local fovCircle = nil
 local joystick = nil
 local joystickBG = nil
 local joystickKnob = nil
-local joystickActive = false
 local joystickPos = Vector2.new(0,0)
-local menuOffset = Vector2.new(0,0)
-local isDraggingMenu = false
-local dragStart = nil
 
--- AIMBOT SETTINGS (BISA DIATUR USER)
+-- VARIABEL KEY
+local userKey = "key" -- Ganti pake key lo
+local keyDuration = "Loading..."
+local keyStatus = "Checking..."
+
+-- AIMBOT SETTINGS
 local FOV_RADIUS = 200
-local HS_RATIO = 5 -- 1 = 100% HS, 10 = 0% HS
+local HS_RATIO = 5
 local AIMBOT_SMOOTH = 0.15
-local aimbotTarget = nil
 
--- BUAT SLIDER
-local fovSlider = nil
-local hsSlider = nil
+-- ==================== CEK KEY DARI API ====================
+local function CheckKey()
+    local url = "https://bowarrowapjir.my.id/api.php?key=" .. userKey
+    local success, response = pcall(function()
+        return http:GetAsync(url)
+    end)
+    
+    if success and response then
+        -- Asumsikan response JSON: {"status":"success","expiry":"2026-12-31"}
+        local data = http:JSONDecode(response)
+        if data and data.status == "success" then
+            keyStatus = "✅ Active"
+            keyDuration = data.expiry or "Unknown"
+        else
+            keyStatus = "❌ Invalid"
+            keyDuration = "Expired"
+        end
+    else
+        keyStatus = "⚠️ API Error (404)"
+        keyDuration = "Check Failed"
+    end
+end
 
--- FLY
+-- Panggil pengecekan key
+spawn(function()
+    CheckKey()
+    -- Update tiap 30 menit
+    while wait(1800) do
+        CheckKey()
+        UpdateKeyDisplay()
+    end
+end)
+
+-- ==================== FLY ====================
 local function toggleFly(state)
     if state then
         if not char or not char.HumanoidRootPart then return end
@@ -69,7 +99,7 @@ local function toggleFly(state)
     end
 end
 
--- NOCLIP
+-- ==================== NOCLIP ====================
 local function toggleNoclip(state)
     if state then
         if char and char.HumanoidRootPart then
@@ -82,7 +112,7 @@ local function toggleNoclip(state)
     end
 end
 
--- ==================== ESP RENDER (AUTO UPDATE PLAYER) ====================
+-- ==================== ESP AUTO RENDER ====================
 local function RenderESP(plr)
     if not esp or not plr or plr == player then return end
     if not plr.Character then return end
@@ -90,7 +120,7 @@ local function RenderESP(plr)
     local root = plr.Character:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    -- Cek udah ada ESP belum
+    -- Cegah duplikat
     for _, data in pairs(espData) do
         if data.plr == plr then return end
     end
@@ -144,7 +174,6 @@ local function ClearESP()
         if data.box then data.box:Destroy() end
         if data.line then data.line:Destroy() end
         if data.tag then data.tag:Destroy() end
-        if data.part then data.part:Destroy() end
     end
     espData = {}
 end
@@ -158,7 +187,7 @@ local function toggleESP(state)
     end
 end
 
--- Auto ESP buat player baru
+-- Auto ESP untuk player baru
 players.PlayerAdded:Connect(function(plr)
     plr.CharacterAdded:Connect(function()
         wait(0.5)
@@ -166,7 +195,7 @@ players.PlayerAdded:Connect(function(plr)
     end)
 end)
 
--- Update ESP setiap frame
+-- Update ESP tiap frame
 runService.Heartbeat:Connect(function()
     if esp and char and char.HumanoidRootPart then
         local origin = char.HumanoidRootPart.Position
@@ -192,7 +221,7 @@ runService.Heartbeat:Connect(function()
     end
 end)
 
--- ==================== JOYSTICK FLY HP ====================
+-- ==================== JOYSTICK FLY ====================
 local function CreateJoystick()
     local sgJoy = Instance.new("ScreenGui")
     sgJoy.Name = "JoystickFly"
@@ -220,13 +249,11 @@ local function CreateJoystick()
 
     local dragging = false
     local startPos = nil
-    local knobStart = nil
 
     joystickBG.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             startPos = input.Position
-            knobStart = joystickKnob.Position
         end
     end)
 
@@ -257,7 +284,7 @@ local function CreateJoystick()
     end)
 end
 
--- ==================== AIMBOT ====================
+-- ==================== AIMBOT FIX ====================
 local function GetClosestTarget()
     if not char or not char.HumanoidRootPart then return nil end
     
@@ -279,12 +306,10 @@ local function GetClosestTarget()
                 local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
                 
                 if dist2D < minDist then
-                    -- Hitung HS Ratio (1 = 100% headshot, 10 = 0%)
                     local hsChance = (11 - HS_RATIO) / 10 * 100
                     local isHeadshot = math.random(1, 100) <= hsChance
                     
                     if isHeadshot then
-                        -- Target ke kepala
                         local head = data.plr.Character:FindFirstChild("Head")
                         if head then
                             minDist = dist2D
@@ -351,7 +376,18 @@ local function toggleAimbot(state)
     end
 end
 
--- ==================== MENU HP + MOVE + SLIDER ====================
+-- ==================== UPDATE KEY DISPLAY ====================
+local function UpdateKeyDisplay()
+    if not mainFrame then return end
+    for _, child in pairs(mainFrame:GetChildren()) do
+        if child.Name == "KeyLabel" then
+            child.Text = "🔑 " .. keyStatus .. " | " .. keyDuration
+            break
+        end
+    end
+end
+
+-- ==================== MENU HP (DRAG MANUAL) ====================
 local function CreateMenu()
     sg = Instance.new("ScreenGui")
     sg.Name = "InoryaX"
@@ -359,20 +395,54 @@ local function CreateMenu()
     sg.ResetOnSpawn = false
 
     mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 300, 0, 500)
-    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -250)
+    mainFrame.Size = UDim2.new(0, 300, 0, 520)
+    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -260)
     mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = sg
+    mainFrame.Active = true
 
-    -- Title bar (buat move)
+    -- Title bar (buat drag)
     local titleBar = Instance.new("Frame")
     titleBar.Size = UDim2.new(1, 0, 0, 30)
     titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
     titleBar.Parent = mainFrame
+    titleBar.Active = true
 
+    -- DRAG MANUAL PAKE TOUCH
+    local draggingMenu = false
+    local dragStartPos = nil
+    local frameStartPos = nil
+
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            draggingMenu = true
+            dragStartPos = input.Position
+            frameStartPos = mainFrame.Position
+        end
+    end)
+
+    titleBar.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            draggingMenu = false
+        end
+    end)
+
+    uis.InputChanged:Connect(function(input)
+        if draggingMenu and input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - dragStartPos
+            mainFrame.Position = UDim2.new(
+                frameStartPos.X.Scale,
+                frameStartPos.X.Offset + delta.X,
+                frameStartPos.Y.Scale,
+                frameStartPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    -- Title text
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -90, 1, 0)
+    title.Size = UDim2.new(1, -60, 1, 0)
     title.Position = UDim2.new(0, 0, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "⚡ INORYA XELEBOT"
@@ -381,58 +451,18 @@ local function CreateMenu()
     title.TextSize = 16
     title.Parent = titleBar
 
-    -- Tombol panah buat mindahin menu
-    local moveUp = Instance.new("TextButton")
-    moveUp.Size = UDim2.new(0, 25, 1, 0)
-    moveUp.Position = UDim2.new(1, -90, 0, 0)
-    moveUp.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    moveUp.Text = "▲"
-    moveUp.TextColor3 = Color3.fromRGB(255, 255, 255)
-    moveUp.Font = Enum.Font.GothamBold
-    moveUp.TextSize = 14
-    moveUp.Parent = titleBar
-    moveUp.MouseButton1Click:Connect(function()
-        mainFrame.Position = mainFrame.Position - UDim2.new(0, 0, 0, 10)
-    end)
-
-    local moveDown = Instance.new("TextButton")
-    moveDown.Size = UDim2.new(0, 25, 1, 0)
-    moveDown.Position = UDim2.new(1, -60, 0, 0)
-    moveDown.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    moveDown.Text = "▼"
-    moveDown.TextColor3 = Color3.fromRGB(255, 255, 255)
-    moveDown.Font = Enum.Font.GothamBold
-    moveDown.TextSize = 14
-    moveDown.Parent = titleBar
-    moveDown.MouseButton1Click:Connect(function()
-        mainFrame.Position = mainFrame.Position + UDim2.new(0, 0, 0, 10)
-    end)
-
-    local moveLeft = Instance.new("TextButton")
-    moveLeft.Size = UDim2.new(0, 25, 1, 0)
-    moveLeft.Position = UDim2.new(1, -120, 0, 0)
-    moveLeft.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    moveLeft.Text = "◄"
-    moveLeft.TextColor3 = Color3.fromRGB(255, 255, 255)
-    moveLeft.Font = Enum.Font.GothamBold
-    moveLeft.TextSize = 14
-    moveLeft.Parent = titleBar
-    moveLeft.MouseButton1Click:Connect(function()
-        mainFrame.Position = mainFrame.Position - UDim2.new(0, 10, 0, 0)
-    end)
-
-    local moveRight = Instance.new("TextButton")
-    moveRight.Size = UDim2.new(0, 25, 1, 0)
-    moveRight.Position = UDim2.new(1, -30, 0, 0)
-    moveRight.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    moveRight.Text = "►"
-    moveRight.TextColor3 = Color3.fromRGB(255, 255, 255)
-    moveRight.Font = Enum.Font.GothamBold
-    moveRight.TextSize = 14
-    moveRight.Parent = titleBar
-    moveRight.MouseButton1Click:Connect(function()
-        mainFrame.Position = mainFrame.Position + UDim2.new(0, 10, 0, 0)
-    end)
+    -- Key Display (pojok kanan atas)
+    local keyLabel = Instance.new("TextLabel")
+    keyLabel.Name = "KeyLabel"
+    keyLabel.Size = UDim2.new(0, 120, 1, 0)
+    keyLabel.Position = UDim2.new(1, -120, 0, 0)
+    keyLabel.BackgroundTransparency = 1
+    keyLabel.Text = "🔑 Checking..."
+    keyLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    keyLabel.Font = Enum.Font.Gotham
+    keyLabel.TextSize = 10
+    keyLabel.TextXAlignment = Enum.TextXAlignment.Right
+    keyLabel.Parent = titleBar
 
     -- Close
     local close = Instance.new("TextButton")
@@ -471,7 +501,7 @@ local function CreateMenu()
             end
             minBtn.Text = "□"
         else
-            mainFrame.Size = UDim2.new(0, 300, 0, 500)
+            mainFrame.Size = UDim2.new(0, 300, 0, 520)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= titleBar then
                     child.Visible = true
@@ -570,7 +600,7 @@ local function CreateMenu()
     fovLabel.TextSize = 13
     fovLabel.Parent = mainFrame
 
-    fovSlider = Instance.new("TextBox")
+    local fovSlider = Instance.new("TextBox")
     fovSlider.Size = UDim2.new(0.35, 0, 0, 25)
     fovSlider.Position = UDim2.new(0.5, 0, 0.75, 0)
     fovSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
@@ -599,7 +629,7 @@ local function CreateMenu()
     hsLabel.TextSize = 13
     hsLabel.Parent = mainFrame
 
-    hsSlider = Instance.new("TextBox")
+    local hsSlider = Instance.new("TextBox")
     hsSlider.Size = UDim2.new(0.35, 0, 0, 25)
     hsSlider.Position = UDim2.new(0.5, 0, 0.83, 0)
     hsSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
@@ -615,6 +645,8 @@ local function CreateMenu()
             hsLabel.Text = "HS Ratio: " .. val
         end
     end)
+
+    UpdateKeyDisplay()
 end
 
 -- ==================== MAIN LOOP ====================
@@ -640,7 +672,6 @@ runService.Heartbeat:Connect(function()
                 moveDir = moveDir + right * joyX * speed
             end
             
-            -- Naik/turun pake tap layar (space/shift)
             if uis:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, speed, 0) end
             if uis:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, speed, 0) end
             
@@ -674,4 +705,4 @@ end)
 
 -- INIT
 CreateMenu()
-print("✅ INORYA XELEBOT - HP ULTIMATE READY!")
+print("✅ INORYA XELEBOT - HP FINAL READY!")
