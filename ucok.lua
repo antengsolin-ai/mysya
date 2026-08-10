@@ -16,7 +16,7 @@ local keyDuration = "0 Days"
 local keyExpiry = ""
 local isKeyValid = false
 
--- ==================== FUNGSI CEK KEY (SIMPLE + CONTENT-TYPE) ====================
+-- ==================== FUNGSI CEK KEY (HTTPS + SKIP CERTIFICATE) ====================
 local function CheckKey(key)
     if not key or key == "" then 
         print("⚠️ Key kosong!")
@@ -29,27 +29,30 @@ local function CheckKey(key)
     local success = false
     local response = nil
     
-    -- PAKE HttpService (paling umum di Delta)
+    -- PAKE syn.request DENGAN SKIP CERTIFICATE
     pcall(function()
-        local httpService = game:GetService("HttpService")
-        response = httpService:GetAsync(url)
-        success = true
+        if syn and syn.request then
+            local result = syn.request({
+                Url = url,
+                Method = "GET",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Options = {
+                    SkipCertificateCheck = true   -- <-- INI KUNCINYA!
+                }
+            })
+            response = result.Body
+            success = true
+        end
     end)
     
-    -- Kalo gagal, coba method syn.request
+    -- Kalo syn.request gagal, coba HttpService (tanpa skip certificate)
     if not success then
         pcall(function()
-            if syn and syn.request then
-                local result = syn.request({
-                    Url = url,
-                    Method = "GET",
-                    Headers = {
-                        ["Content-Type"] = "application/json"
-                    }
-                })
-                response = result.Body
-                success = true
-            end
+            local httpService = game:GetService("HttpService")
+            response = httpService:GetAsync(url)
+            success = true
         end)
     end
     
@@ -88,7 +91,6 @@ local function CheckKey(key)
         return false
     end
 end
-
 -- ==================== POPUP INPUT KEY ====================
 local function ShowKeyPopup()
     local sgPopup = Instance.new("ScreenGui")
