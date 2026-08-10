@@ -1,4 +1,4 @@
---[[ INORYA XELEBOT - TAB SYSTEM + SLIDER (FIXED) ]]
+--[[ INORYA XELEBOT - TAB FIX + SLIDER TANPA BATAS ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -30,7 +30,7 @@ local FOV_RADIUS = 200
 local HS_RATIO = 5
 local AIMBOT_SMOOTH = 0.15
 local currentTab = "AIM"
-local trollMenu = nil
+local contentFrame = nil
 
 -- ==================== FLY ====================
 local function toggleFly(state)
@@ -264,7 +264,7 @@ local function GetClosestTarget()
                 local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
                 
                 if dist2D < minDist then
-                    local hsChance = (HS_RATIO) / 10 * 100  -- 0 = 0%, 10 = 100%
+                    local hsChance = (HS_RATIO) / 10 * 100
                     local isHeadshot = math.random(1, 100) <= hsChance
                     
                     if isHeadshot then
@@ -519,17 +519,12 @@ local function CreateMenu()
     end
 
     -- CONTENT FRAME
-    local contentFrame = Instance.new("Frame")
+    contentFrame = Instance.new("Frame")
     contentFrame.Size = UDim2.new(1, 0, 1, -60)
     contentFrame.Position = UDim2.new(0, 0, 0, 60)
     contentFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
     contentFrame.BackgroundTransparency = 0.5
     contentFrame.Parent = mainFrame
-
-    -- VARIABEL SLIDER
-    local fovSlider = nil
-    local hsSlider = nil
-    local speedSlider = nil
 
     -- FUNGSI UPDATE TAB
     local function UpdateTabContent()
@@ -566,7 +561,7 @@ local function CreateMenu()
             fovLabel.TextSize = 14
             fovLabel.Parent = contentFrame
 
-            fovSlider = Instance.new("TextButton")
+            local fovSlider = Instance.new("TextButton")
             fovSlider.Size = UDim2.new(0.4, 0, 0, 25)
             fovSlider.Position = UDim2.new(0.5, 0, 0.2, 0)
             fovSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
@@ -594,7 +589,7 @@ local function CreateMenu()
             hsLabel.TextSize = 14
             hsLabel.Parent = contentFrame
 
-            hsSlider = Instance.new("TextButton")
+            local hsSlider = Instance.new("TextButton")
             hsSlider.Size = UDim2.new(0.4, 0, 0, 25)
             hsSlider.Position = UDim2.new(0.5, 0, 0.4, 0)
             hsSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
@@ -665,7 +660,7 @@ local function CreateMenu()
                 end
             end)
 
-            -- Speed Slider (16-100)
+            -- Speed Slider (tanpa batas)
             local speedLabel = Instance.new("TextLabel")
             speedLabel.Size = UDim2.new(0.4, 0, 0, 25)
             speedLabel.Position = UDim2.new(0.05, 0, 0.25, 0)
@@ -676,7 +671,7 @@ local function CreateMenu()
             speedLabel.TextSize = 14
             speedLabel.Parent = contentFrame
 
-            speedSlider = Instance.new("TextButton")
+            local speedSlider = Instance.new("TextButton")
             speedSlider.Size = UDim2.new(0.4, 0, 0, 25)
             speedSlider.Position = UDim2.new(0.5, 0, 0.25, 0)
             speedSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
@@ -687,8 +682,8 @@ local function CreateMenu()
             speedSlider.Parent = contentFrame
             
             speedSlider.MouseButton1Click:Connect(function()
-                speedValue = (speedValue + 5) % 101
-                if speedValue < 16 then speedValue = 16 end
+                speedValue = speedValue + 10
+                if speedValue > 999 then speedValue = 10 end
                 speedLabel.Text = "Speed: " .. speedValue
                 speedSlider.Text = "◄ " .. speedValue .. " ►"
                 if speedEnabled and char and char.Humanoid then
@@ -812,4 +807,4 @@ end)
 
 -- ==================== START ====================
 CreateMenu()
-print("✅ INORYA XELEBOT - TAB SYSTEM + SLIDER READY!")
+print("✅ INORYA XELEBOT - TAB FIX + SLIDER TANPA BATAS READY!")
