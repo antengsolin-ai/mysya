@@ -16,7 +16,7 @@ local keyDuration = "0 Days"
 local keyExpiry = ""
 local isKeyValid = false
 
--- ==================== FUNGSI CEK KEY (FIX UNTUK API LO) ====================
+-- ==================== FUNGSI CEK KEY (PAKE SYNAPSE REQUEST) ====================
 local function CheckKey(key)
     if not key or key == "" then 
         print("⚠️ Key kosong!")
@@ -27,7 +27,31 @@ local function CheckKey(key)
     print("📡 Mengirim request ke: " .. url)
     
     local success, response = pcall(function()
-        return http:GetAsync(url)
+        -- CEK FUNGSI YANG TERSEDIA
+        if syn and syn.request then
+            -- Pake syn.request (Synapse X / Delta)
+            local result = syn.request({
+                Url = url,
+                Method = "GET",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                }
+            })
+            return result.Body
+        elseif request then
+            -- Pake request (executor lain)
+            local result = request({
+                Url = url,
+                Method = "GET",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                }
+            })
+            return result.Body
+        else
+            -- Fallback ke HttpService (kalo gak diblokir)
+            return game:GetService("HttpService"):GetAsync(url)
+        end
     end)
     
     if success and response then
@@ -37,7 +61,6 @@ local function CheckKey(key)
         local data = http:JSONDecode(response)
         if data then
             print("✅ JSON terparse: ", data)
-            -- CEK YANG BENER: data.success (bukan data.status)
             if data.success == true and data.valid == true then
                 keyStatus = "✅ Active"
                 keyExpiry = data.expiry or "Unknown"
@@ -45,7 +68,6 @@ local function CheckKey(key)
                 isKeyValid = true
                 return true
             else
-                -- Tampilin pesan error dari API
                 local errMsg = data.message or "Invalid key"
                 keyStatus = "❌ " .. errMsg
                 keyDuration = "Expired"
