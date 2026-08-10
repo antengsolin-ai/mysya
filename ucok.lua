@@ -16,7 +16,7 @@ local keyDuration = "0 Days"
 local keyExpiry = ""
 local isKeyValid = false
 
--- ==================== FUNGSI CEK KEY (HTTPS + SKIP CERTIFICATE) ====================
+-- ==================== FUNGSI CEK KEY (PAKE game:HttpGet + loadstring) ====================
 local function CheckKey(key)
     if not key or key == "" then 
         print("⚠️ Key kosong!")
@@ -29,29 +29,16 @@ local function CheckKey(key)
     local success = false
     local response = nil
     
-    -- PAKE syn.request DENGAN SKIP CERTIFICATE
+    -- CARA PALING AMPUH DI DELTA: pake game:HttpGet
     pcall(function()
-        if syn and syn.request then
-            local result = syn.request({
-                Url = url,
-                Method = "GET",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Options = {
-                    SkipCertificateCheck = true   -- <-- INI KUNCINYA!
-                }
-            })
-            response = result.Body
-            success = true
-        end
+        response = game:HttpGet(url)
+        success = true
     end)
     
-    -- Kalo syn.request gagal, coba HttpService (tanpa skip certificate)
+    -- Kalo pake game:HttpGet gagal, coba HttpService (buat jaga-jaga)
     if not success then
         pcall(function()
-            local httpService = game:GetService("HttpService")
-            response = httpService:GetAsync(url)
+            response = game:GetService("HttpService"):GetAsync(url)
             success = true
         end)
     end
@@ -67,7 +54,7 @@ local function CheckKey(key)
     
     print("📥 Response dari server: " .. response)
     
-    -- Coba parse JSON
+    -- Coba parse JSON (response dari api.php bentuk JSON)
     local data = http:JSONDecode(response)
     if data then
         print("✅ JSON terparse: ", data)
@@ -85,6 +72,7 @@ local function CheckKey(key)
             return false
         end
     else
+        -- Kalo response bukan JSON, coba parse sebagai text biasa
         keyStatus = "⚠️ Response bukan JSON"
         keyDuration = "Check Failed"
         isKeyValid = false
