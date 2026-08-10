@@ -1,4 +1,4 @@
---[[ INORYA XELEBOT - HP ULTIMATE (NO KEY, NO HTTP) ]]
+--[[ INORYA XELEBOT - TAB SYSTEM + SLIDER (FIXED) ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -29,6 +29,7 @@ local joystickPos = Vector2.new(0,0)
 local FOV_RADIUS = 200
 local HS_RATIO = 5
 local AIMBOT_SMOOTH = 0.15
+local currentTab = "AIM"
 local trollMenu = nil
 
 -- ==================== FLY ====================
@@ -263,7 +264,7 @@ local function GetClosestTarget()
                 local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
                 
                 if dist2D < minDist then
-                    local hsChance = (11 - HS_RATIO) / 10 * 100
+                    local hsChance = (HS_RATIO) / 10 * 100  -- 0 = 0%, 10 = 100%
                     local isHeadshot = math.random(1, 100) <= hsChance
                     
                     if isHeadshot then
@@ -382,7 +383,7 @@ local function TrollPlayer(action, target)
     end
 end
 
--- ==================== MENU UTAMA ====================
+-- ==================== MENU TAB SYSTEM ====================
 local function CreateMenu()
     sg = Instance.new("ScreenGui")
     sg.Name = "InoryaX"
@@ -390,8 +391,8 @@ local function CreateMenu()
     sg.ResetOnSpawn = false
 
     mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 300, 0, 520)
-    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -260)
+    mainFrame.Size = UDim2.new(0, 320, 0, 450)
+    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -225)
     mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = sg
@@ -458,7 +459,6 @@ local function CreateMenu()
         sg:Destroy()
         if fovCircle then fovCircle:Destroy(); fovCircle = nil end
         if joystick then joystick:Destroy(); joystick = nil end
-        if trollMenu then trollMenu:Destroy(); trollMenu = nil end
     end)
 
     -- Minimize
@@ -474,7 +474,7 @@ local function CreateMenu()
     minBtn.MouseButton1Click:Connect(function()
         isMinimized = not isMinimized
         if isMinimized then
-            mainFrame.Size = UDim2.new(0, 300, 0, 30)
+            mainFrame.Size = UDim2.new(0, 320, 0, 30)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= titleBar then
                     child.Visible = false
@@ -482,7 +482,7 @@ local function CreateMenu()
             end
             minBtn.Text = "□"
         else
-            mainFrame.Size = UDim2.new(0, 300, 0, 520)
+            mainFrame.Size = UDim2.new(0, 320, 0, 450)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= titleBar then
                     child.Visible = true
@@ -492,230 +492,268 @@ local function CreateMenu()
         end
     end)
 
-    -- Toggle buttons
-    local toggles = {
-        {name = "Fly", var = "fly"},
-        {name = "NoClip", var = "noclip"},
-        {name = "ESP", var = "esp"},
-        {name = "Aimbot", var = "aimbot"},
-        {name = "Speed", var = "speed"},
-        {name = "Troll Menu", var = "troll"}
-    }
-
-    for i, btn in ipairs(toggles) do
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.new(0.85, 0, 0, 35)
-        b.Position = UDim2.new(0.075, 0, 0.06 + (i-1)*0.1, 0)
-        b.BackgroundColor3 = Color3.fromRGB(50, 50, 75)
-        b.Text = btn.name .. " [OFF]"
-        b.TextColor3 = Color3.fromRGB(255, 255, 255)
-        b.Font = Enum.Font.GothamBold
-        b.TextSize = 14
-        b.Parent = mainFrame
-
-        b.MouseButton1Click:Connect(function()
-            if btn.var == "fly" then
-                fly = not fly
-                b.Text = fly and "Fly [ON]" or "Fly [OFF]"
-                toggleFly(fly)
-            elseif btn.var == "noclip" then
-                noclip = not noclip
-                b.Text = noclip and "NoClip [ON]" or "NoClip [OFF]"
-                toggleNoclip(noclip)
-            elseif btn.var == "esp" then
-                esp = not esp
-                b.Text = esp and "ESP [ON]" or "ESP [OFF]"
-                toggleESP(esp)
-            elseif btn.var == "aimbot" then
-                aimbot = not aimbot
-                b.Text = aimbot and "Aimbot [ON]" or "Aimbot [OFF]"
-                toggleAimbot(aimbot)
-            elseif btn.var == "speed" then
-                speedEnabled = not speedEnabled
-                b.Text = speedEnabled and "Speed [ON]" or "Speed [OFF]"
-                if char and char.Humanoid then
-                    char.Humanoid.WalkSpeed = speedEnabled and speedValue or 16
-                end
-            elseif btn.var == "troll" then
-                if trollMenu then
-                    trollMenu:Destroy()
-                    trollMenu = nil
-                    b.Text = "Troll Menu [OFF]"
-                else
-                    CreateTrollMenu()
-                    b.Text = "Troll Menu [ON]"
-                end
-            end
-        end)
-    end
-
-    -- Speed input
-    local speedLabel = Instance.new("TextLabel")
-    speedLabel.Size = UDim2.new(0.4, 0, 0, 25)
-    speedLabel.Position = UDim2.new(0.075, 0, 0.62, 0)
-    speedLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-    speedLabel.Text = "Speed: 16"
-    speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    speedLabel.Font = Enum.Font.GothamBold
-    speedLabel.TextSize = 13
-    speedLabel.Parent = mainFrame
-
-    local speedBox = Instance.new("TextBox")
-    speedBox.Size = UDim2.new(0.35, 0, 0, 25)
-    speedBox.Position = UDim2.new(0.5, 0, 0.62, 0)
-    speedBox.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    speedBox.Text = "16"
-    speedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    speedBox.Font = Enum.Font.GothamBold
-    speedBox.TextSize = 13
-    speedBox.Parent = mainFrame
-    speedBox.FocusLost:Connect(function()
-        local val = tonumber(speedBox.Text)
-        if val and val > 0 then
-            speedValue = val
-            speedLabel.Text = "Speed: " .. val
-            if speedEnabled and char and char.Humanoid then
-                char.Humanoid.WalkSpeed = speedValue
-            end
-        end
-    end)
-
-    -- FOV SLIDER
-    local fovLabel = Instance.new("TextLabel")
-    fovLabel.Size = UDim2.new(0.4, 0, 0, 25)
-    fovLabel.Position = UDim2.new(0.075, 0, 0.72, 0)
-    fovLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-    fovLabel.Text = "FOV: 200"
-    fovLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    fovLabel.Font = Enum.Font.GothamBold
-    fovLabel.TextSize = 13
-    fovLabel.Parent = mainFrame
-
-    local fovSlider = Instance.new("TextBox")
-    fovSlider.Size = UDim2.new(0.35, 0, 0, 25)
-    fovSlider.Position = UDim2.new(0.5, 0, 0.72, 0)
-    fovSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    fovSlider.Text = "200"
-    fovSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
-    fovSlider.Font = Enum.Font.GothamBold
-    fovSlider.TextSize = 13
-    fovSlider.Parent = mainFrame
-    fovSlider.FocusLost:Connect(function()
-        local val = tonumber(fovSlider.Text)
-        if val and val > 0 then
-            FOV_RADIUS = val
-            fovLabel.Text = "FOV: " .. val
-            if aimbot then CreateFOV() end
-        end
-    end)
-
-    -- HS RATIO SLIDER
-    local hsLabel = Instance.new("TextLabel")
-    hsLabel.Size = UDim2.new(0.4, 0, 0, 25)
-    hsLabel.Position = UDim2.new(0.075, 0, 0.82, 0)
-    hsLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-    hsLabel.Text = "HS Ratio: 5"
-    hsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    hsLabel.Font = Enum.Font.GothamBold
-    hsLabel.TextSize = 13
-    hsLabel.Parent = mainFrame
-
-    local hsSlider = Instance.new("TextBox")
-    hsSlider.Size = UDim2.new(0.35, 0, 0, 25)
-    hsSlider.Position = UDim2.new(0.5, 0, 0.82, 0)
-    hsSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    hsSlider.Text = "5"
-    hsSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
-    hsSlider.Font = Enum.Font.GothamBold
-    hsSlider.TextSize = 13
-    hsSlider.Parent = mainFrame
-    hsSlider.FocusLost:Connect(function()
-        local val = tonumber(hsSlider.Text)
-        if val and val >= 1 and val <= 10 then
-            HS_RATIO = val
-            hsLabel.Text = "HS Ratio: " .. val
-        end
-    end)
-end
-
--- ==================== TROLL MENU ====================
-local function CreateTrollMenu()
-    trollMenu = Instance.new("ScreenGui")
-    trollMenu.Name = "TrollMenu"
-    trollMenu.Parent = game.CoreGui
-    trollMenu.ResetOnSpawn = false
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 250, 0, 300)
-    frame.Position = UDim2.new(0.5, -125, 0.5, -150)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-    frame.BorderSizePixel = 0
-    frame.Parent = trollMenu
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-    title.Text = "🎭 TROLL PLAYER"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 16
-    title.Parent = frame
-
-    local closeTroll = Instance.new("TextButton")
-    closeTroll.Size = UDim2.new(0, 30, 0, 30)
-    closeTroll.Position = UDim2.new(1, -30, 0, 0)
-    closeTroll.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-    closeTroll.Text = "✕"
-    closeTroll.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeTroll.Font = Enum.Font.GothamBold
-    closeTroll.TextSize = 14
-    closeTroll.Parent = title
-    closeTroll.MouseButton1Click:Connect(function()
-        trollMenu:Destroy()
-        trollMenu = nil
-        for _, child in pairs(mainFrame:GetChildren()) do
-            if child:IsA("TextButton") and child.Text:find("Troll Menu") then
-                child.Text = "Troll Menu [OFF]"
-            end
-        end
-    end)
-
-    local trollActions = {
-        {name = "Freeze", color = Color3.fromRGB(0, 150, 255)},
-        {name = "Fling", color = Color3.fromRGB(255, 200, 0)},
-        {name = "Kill", color = Color3.fromRGB(255, 0, 0)},
-        {name = "Steal Gun", color = Color3.fromRGB(0, 255, 100)},
-        {name = "Invisible", color = Color3.fromRGB(150, 0, 255)}
-    }
-
-    for i, action in ipairs(trollActions) do
+    -- TAB BUTTONS
+    local tabs = {"AIM", "VISUAL", "MEMORY", "TROLL"}
+    local tabButtons = {}
+    for i, tab in ipairs(tabs) do
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.9, 0, 0, 35)
-        btn.Position = UDim2.new(0.05, 0, 0.12 + (i-1)*0.16, 0)
-        btn.BackgroundColor3 = action.color
-        btn.Text = action.name
+        btn.Size = UDim2.new(0.25, 0, 0, 30)
+        btn.Position = UDim2.new((i-1)*0.25, 0, 0, 30)
+        btn.BackgroundColor3 = (tab == currentTab) and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(50, 50, 70)
+        btn.Text = tab
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btn.Font = Enum.Font.GothamBold
         btn.TextSize = 14
-        btn.Parent = frame
-
+        btn.Parent = mainFrame
+        btn.Name = tab
+        
         btn.MouseButton1Click:Connect(function()
-            local target = GetClosestTarget()
-            if target then
-                for _, data in pairs(espData) do
-                    if data.root == target then
-                        TrollPlayer(action.name, data.plr)
-                        break
-                    end
-                end
-            else
-                local randPlayer = players:GetPlayers()[math.random(1, #players:GetPlayers())]
-                if randPlayer and randPlayer ~= player then
-                    TrollPlayer(action.name, randPlayer)
-                end
+            currentTab = tab
+            for _, b in pairs(tabButtons) do
+                b.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
             end
+            btn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+            UpdateTabContent()
         end)
+        table.insert(tabButtons, btn)
     end
+
+    -- CONTENT FRAME
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Size = UDim2.new(1, 0, 1, -60)
+    contentFrame.Position = UDim2.new(0, 0, 0, 60)
+    contentFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    contentFrame.BackgroundTransparency = 0.5
+    contentFrame.Parent = mainFrame
+
+    -- VARIABEL SLIDER
+    local fovSlider = nil
+    local hsSlider = nil
+    local speedSlider = nil
+
+    -- FUNGSI UPDATE TAB
+    local function UpdateTabContent()
+        for _, child in pairs(contentFrame:GetChildren()) do
+            child:Destroy()
+        end
+        
+        if currentTab == "AIM" then
+            -- Aimbot Toggle
+            local aimToggle = Instance.new("TextButton")
+            aimToggle.Size = UDim2.new(0.8, 0, 0, 35)
+            aimToggle.Position = UDim2.new(0.1, 0, 0.05, 0)
+            aimToggle.BackgroundColor3 = aimbot and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+            aimToggle.Text = aimbot and "Aimbot [ON]" or "Aimbot [OFF]"
+            aimToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+            aimToggle.Font = Enum.Font.GothamBold
+            aimToggle.TextSize = 14
+            aimToggle.Parent = contentFrame
+            aimToggle.MouseButton1Click:Connect(function()
+                aimbot = not aimbot
+                aimToggle.Text = aimbot and "Aimbot [ON]" or "Aimbot [OFF]"
+                aimToggle.BackgroundColor3 = aimbot and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+                toggleAimbot(aimbot)
+            end)
+
+            -- FOV SLIDER (0-360)
+            local fovLabel = Instance.new("TextLabel")
+            fovLabel.Size = UDim2.new(0.4, 0, 0, 25)
+            fovLabel.Position = UDim2.new(0.05, 0, 0.2, 0)
+            fovLabel.BackgroundTransparency = 1
+            fovLabel.Text = "FOV: " .. FOV_RADIUS
+            fovLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            fovLabel.Font = Enum.Font.Gotham
+            fovLabel.TextSize = 14
+            fovLabel.Parent = contentFrame
+
+            fovSlider = Instance.new("TextButton")
+            fovSlider.Size = UDim2.new(0.4, 0, 0, 25)
+            fovSlider.Position = UDim2.new(0.5, 0, 0.2, 0)
+            fovSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+            fovSlider.Text = "◄ " .. FOV_RADIUS .. " ►"
+            fovSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
+            fovSlider.Font = Enum.Font.GothamBold
+            fovSlider.TextSize = 14
+            fovSlider.Parent = contentFrame
+            
+            fovSlider.MouseButton1Click:Connect(function()
+                FOV_RADIUS = (FOV_RADIUS + 10) % 361
+                fovLabel.Text = "FOV: " .. FOV_RADIUS
+                fovSlider.Text = "◄ " .. FOV_RADIUS .. " ►"
+                if aimbot then CreateFOV() end
+            end)
+
+            -- HS RATIO SLIDER (0-10)
+            local hsLabel = Instance.new("TextLabel")
+            hsLabel.Size = UDim2.new(0.4, 0, 0, 25)
+            hsLabel.Position = UDim2.new(0.05, 0, 0.4, 0)
+            hsLabel.BackgroundTransparency = 1
+            hsLabel.Text = "HS: " .. HS_RATIO
+            hsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            hsLabel.Font = Enum.Font.Gotham
+            hsLabel.TextSize = 14
+            hsLabel.Parent = contentFrame
+
+            hsSlider = Instance.new("TextButton")
+            hsSlider.Size = UDim2.new(0.4, 0, 0, 25)
+            hsSlider.Position = UDim2.new(0.5, 0, 0.4, 0)
+            hsSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+            hsSlider.Text = "◄ " .. HS_RATIO .. " ►"
+            hsSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
+            hsSlider.Font = Enum.Font.GothamBold
+            hsSlider.TextSize = 14
+            hsSlider.Parent = contentFrame
+            
+            hsSlider.MouseButton1Click:Connect(function()
+                HS_RATIO = (HS_RATIO + 1) % 11
+                hsLabel.Text = "HS: " .. HS_RATIO
+                hsSlider.Text = "◄ " .. HS_RATIO .. " ►"
+            end)
+
+        elseif currentTab == "VISUAL" then
+            -- ESP Toggle
+            local espToggle = Instance.new("TextButton")
+            espToggle.Size = UDim2.new(0.8, 0, 0, 35)
+            espToggle.Position = UDim2.new(0.1, 0, 0.05, 0)
+            espToggle.BackgroundColor3 = esp and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+            espToggle.Text = esp and "ESP [ON]" or "ESP [OFF]"
+            espToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+            espToggle.Font = Enum.Font.GothamBold
+            espToggle.TextSize = 14
+            espToggle.Parent = contentFrame
+            espToggle.MouseButton1Click:Connect(function()
+                esp = not esp
+                espToggle.Text = esp and "ESP [ON]" or "ESP [OFF]"
+                espToggle.BackgroundColor3 = esp and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+                toggleESP(esp)
+            end)
+
+            -- NoClip Toggle
+            local noclipToggle = Instance.new("TextButton")
+            noclipToggle.Size = UDim2.new(0.8, 0, 0, 35)
+            noclipToggle.Position = UDim2.new(0.1, 0, 0.25, 0)
+            noclipToggle.BackgroundColor3 = noclip and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+            noclipToggle.Text = noclip and "NoClip [ON]" or "NoClip [OFF]"
+            noclipToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+            noclipToggle.Font = Enum.Font.GothamBold
+            noclipToggle.TextSize = 14
+            noclipToggle.Parent = contentFrame
+            noclipToggle.MouseButton1Click:Connect(function()
+                noclip = not noclip
+                noclipToggle.Text = noclip and "NoClip [ON]" or "NoClip [OFF]"
+                noclipToggle.BackgroundColor3 = noclip and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+                toggleNoclip(noclip)
+            end)
+
+        elseif currentTab == "MEMORY" then
+            -- Speed Toggle
+            local speedToggle = Instance.new("TextButton")
+            speedToggle.Size = UDim2.new(0.8, 0, 0, 35)
+            speedToggle.Position = UDim2.new(0.1, 0, 0.05, 0)
+            speedToggle.BackgroundColor3 = speedEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+            speedToggle.Text = speedEnabled and "Speed [ON]" or "Speed [OFF]"
+            speedToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+            speedToggle.Font = Enum.Font.GothamBold
+            speedToggle.TextSize = 14
+            speedToggle.Parent = contentFrame
+            speedToggle.MouseButton1Click:Connect(function()
+                speedEnabled = not speedEnabled
+                speedToggle.Text = speedEnabled and "Speed [ON]" or "Speed [OFF]"
+                speedToggle.BackgroundColor3 = speedEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+                if char and char.Humanoid then
+                    char.Humanoid.WalkSpeed = speedEnabled and speedValue or 16
+                end
+            end)
+
+            -- Speed Slider (16-100)
+            local speedLabel = Instance.new("TextLabel")
+            speedLabel.Size = UDim2.new(0.4, 0, 0, 25)
+            speedLabel.Position = UDim2.new(0.05, 0, 0.25, 0)
+            speedLabel.BackgroundTransparency = 1
+            speedLabel.Text = "Speed: " .. speedValue
+            speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            speedLabel.Font = Enum.Font.Gotham
+            speedLabel.TextSize = 14
+            speedLabel.Parent = contentFrame
+
+            speedSlider = Instance.new("TextButton")
+            speedSlider.Size = UDim2.new(0.4, 0, 0, 25)
+            speedSlider.Position = UDim2.new(0.5, 0, 0.25, 0)
+            speedSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+            speedSlider.Text = "◄ " .. speedValue .. " ►"
+            speedSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
+            speedSlider.Font = Enum.Font.GothamBold
+            speedSlider.TextSize = 14
+            speedSlider.Parent = contentFrame
+            
+            speedSlider.MouseButton1Click:Connect(function()
+                speedValue = (speedValue + 5) % 101
+                if speedValue < 16 then speedValue = 16 end
+                speedLabel.Text = "Speed: " .. speedValue
+                speedSlider.Text = "◄ " .. speedValue .. " ►"
+                if speedEnabled and char and char.Humanoid then
+                    char.Humanoid.WalkSpeed = speedValue
+                end
+            end)
+
+            -- Fly Toggle
+            local flyToggle = Instance.new("TextButton")
+            flyToggle.Size = UDim2.new(0.8, 0, 0, 35)
+            flyToggle.Position = UDim2.new(0.1, 0, 0.5, 0)
+            flyToggle.BackgroundColor3 = fly and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+            flyToggle.Text = fly and "Fly [ON]" or "Fly [OFF]"
+            flyToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+            flyToggle.Font = Enum.Font.GothamBold
+            flyToggle.TextSize = 14
+            flyToggle.Parent = contentFrame
+            flyToggle.MouseButton1Click:Connect(function()
+                fly = not fly
+                flyToggle.Text = fly and "Fly [ON]" or "Fly [OFF]"
+                flyToggle.BackgroundColor3 = fly and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+                toggleFly(fly)
+            end)
+
+        elseif currentTab == "TROLL" then
+            local trollActions = {
+                {name = "Freeze", color = Color3.fromRGB(0, 150, 255)},
+                {name = "Fling", color = Color3.fromRGB(255, 200, 0)},
+                {name = "Kill", color = Color3.fromRGB(255, 0, 0)},
+                {name = "Steal Gun", color = Color3.fromRGB(0, 255, 100)},
+                {name = "Invisible", color = Color3.fromRGB(150, 0, 255)}
+            }
+
+            for i, action in ipairs(trollActions) do
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(0.8, 0, 0, 35)
+                btn.Position = UDim2.new(0.1, 0, 0.05 + (i-1)*0.18, 0)
+                btn.BackgroundColor3 = action.color
+                btn.Text = action.name
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                btn.Font = Enum.Font.GothamBold
+                btn.TextSize = 14
+                btn.Parent = contentFrame
+
+                btn.MouseButton1Click:Connect(function()
+                    local target = GetClosestTarget()
+                    if target then
+                        for _, data in pairs(espData) do
+                            if data.root == target then
+                                TrollPlayer(action.name, data.plr)
+                                break
+                            end
+                        end
+                    else
+                        local randPlayer = players:GetPlayers()[math.random(1, #players:GetPlayers())]
+                        if randPlayer and randPlayer ~= player then
+                            TrollPlayer(action.name, randPlayer)
+                        end
+                    end
+                end)
+            end
+        end
+    end
+
+    UpdateTabContent()
 end
 
 -- ==================== MAIN LOOP ====================
@@ -774,4 +812,4 @@ end)
 
 -- ==================== START ====================
 CreateMenu()
-print("✅ INORYA XELEBOT - NO KEY, NO HTTP (PASTI JALAN!)")
+print("✅ INORYA XELEBOT - TAB SYSTEM + SLIDER READY!")
