@@ -17,7 +17,7 @@ local isKeyValid = false
 
 local function CheckKey(key)
     if not key or key == "" then return false end
-    local url = "https://bowarrowapjir.my.id/api.php?key=" .. key
+    local url = "https://bowarrowapjir.my.id/panel/api.php?key=" .. key
     local success, response = pcall(function()
         return http:GetAsync(url)
     end)
