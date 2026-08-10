@@ -1,4 +1,4 @@
---[[ INORYA XELEBOT - HP ULTIMATE (FLY FIX + TROLL MENU + KEY) ]]
+--[[ INORYA XELEBOT - HP ULTIMATE (API FIX + KEY SYSTEM + TROLL) ]]
 
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
@@ -9,41 +9,65 @@ local uis = game:GetService("UserInputService")
 local camera = workspace.CurrentCamera
 local http = game:GetService("HttpService")
 
--- ==================== KEY SYSTEM ====================
+-- ==================== VARIABEL KEY ====================
 local userKey = ""
 local keyStatus = "❌ Invalid"
 local keyDuration = "0 Days"
+local keyExpiry = ""
 local isKeyValid = false
 
+-- ==================== FUNGSI CEK KEY (FIX UNTUK API LO) ====================
 local function CheckKey(key)
-    if not key or key == "" then return false end
+    if not key or key == "" then 
+        print("⚠️ Key kosong!")
+        return false 
+    end
+    
     local url = "https://bowarrowapjir.my.id/panel/api.php?key=" .. key
+    print("📡 Mengirim request ke: " .. url)
+    
     local success, response = pcall(function()
         return http:GetAsync(url)
     end)
     
     if success and response then
+        print("📥 Response dari server: " .. response)
+        
+        -- Coba parse JSON
         local data = http:JSONDecode(response)
-        if data and data.status == "success" then
-            keyStatus = "✅ Active"
-            keyDuration = "Exp: " .. (data.expiry or "Unknown")
-            isKeyValid = true
-            return true
+        if data then
+            print("✅ JSON terparse: ", data)
+            -- CEK YANG BENER: data.success (bukan data.status)
+            if data.success == true and data.valid == true then
+                keyStatus = "✅ Active"
+                keyExpiry = data.expiry or "Unknown"
+                keyDuration = "Exp: " .. (data.expiry_text or keyExpiry)
+                isKeyValid = true
+                return true
+            else
+                -- Tampilin pesan error dari API
+                local errMsg = data.message or "Invalid key"
+                keyStatus = "❌ " .. errMsg
+                keyDuration = "Expired"
+                isKeyValid = false
+                return false
+            end
         else
-            keyStatus = "❌ Invalid"
-            keyDuration = "Expired"
+            keyStatus = "⚠️ Response bukan JSON"
+            keyDuration = "Check Failed"
             isKeyValid = false
             return false
         end
     else
-        keyStatus = "⚠️ API Error"
+        print("❌ Gagal menghubungi API: " .. tostring(response))
+        keyStatus = "⚠️ API Error (HTTP: " .. tostring(response) .. ")"
         keyDuration = "Check Failed"
         isKeyValid = false
         return false
     end
 end
 
--- ==================== POPUP KEY ====================
+-- ==================== POPUP INPUT KEY ====================
 local function ShowKeyPopup()
     local sgPopup = Instance.new("ScreenGui")
     sgPopup.Name = "KeyPopup"
@@ -51,8 +75,8 @@ local function ShowKeyPopup()
     sgPopup.ResetOnSpawn = false
 
     local popupFrame = Instance.new("Frame")
-    popupFrame.Size = UDim2.new(0, 350, 0, 200)
-    popupFrame.Position = UDim2.new(0.5, -175, 0.5, -100)
+    popupFrame.Size = UDim2.new(0, 380, 0, 250)
+    popupFrame.Position = UDim2.new(0.5, -190, 0.5, -125)
     popupFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     popupFrame.BorderSizePixel = 0
     popupFrame.Parent = sgPopup
@@ -68,7 +92,7 @@ local function ShowKeyPopup()
 
     local keyBox = Instance.new("TextBox")
     keyBox.Size = UDim2.new(0.8, 0, 0, 40)
-    keyBox.Position = UDim2.new(0.1, 0, 0.3, 0)
+    keyBox.Position = UDim2.new(0.1, 0, 0.28, 0)
     keyBox.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
     keyBox.Text = ""
     keyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -77,9 +101,21 @@ local function ShowKeyPopup()
     keyBox.PlaceholderText = "Masukan Key..."
     keyBox.Parent = popupFrame
 
+    -- DEBUG RESPONSE LABEL
+    local debugLabel = Instance.new("TextLabel")
+    debugLabel.Size = UDim2.new(0.9, 0, 0, 50)
+    debugLabel.Position = UDim2.new(0.05, 0, 0.55, 0)
+    debugLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    debugLabel.Text = "📡 Belum ada request"
+    debugLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    debugLabel.Font = Enum.Font.Gotham
+    debugLabel.TextSize = 11
+    debugLabel.TextWrapped = true
+    debugLabel.Parent = popupFrame
+
     local statusLabel = Instance.new("TextLabel")
     statusLabel.Size = UDim2.new(0.8, 0, 0, 30)
-    statusLabel.Position = UDim2.new(0.1, 0, 0.6, 0)
+    statusLabel.Position = UDim2.new(0.1, 0, 0.75, 0)
     statusLabel.BackgroundTransparency = 1
     statusLabel.Text = "🔴 Belum divalidasi"
     statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -89,7 +125,7 @@ local function ShowKeyPopup()
 
     local submitBtn = Instance.new("TextButton")
     submitBtn.Size = UDim2.new(0.4, 0, 0, 40)
-    submitBtn.Position = UDim2.new(0.3, 0, 0.75, 0)
+    submitBtn.Position = UDim2.new(0.3, 0, 0.85, 0)
     submitBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
     submitBtn.Text = "VALIDASI"
     submitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -107,18 +143,26 @@ local function ShowKeyPopup()
 
         statusLabel.Text = "⏳ Mengecek key..."
         statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+        debugLabel.Text = "📡 Mengirim request ke API..."
+
+        wait(0.5)
 
         local valid = CheckKey(key)
+        
+        debugLabel.Text = "📥 Response: " .. (keyStatus or "Tidak ada response")
+
         if valid then
             userKey = key
             statusLabel.Text = "✅ KEY VALID! Memuat sistem..."
             statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+            debugLabel.Text = "✅ Key valid! Load system..."
             wait(0.5)
             sgPopup:Destroy()
             LoadSystem()
         else
-            statusLabel.Text = "❌ KEY INVALID! Coba lagi."
+            statusLabel.Text = "❌ KEY INVALID! Cek debug di bawah."
             statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+            debugLabel.Text = debugLabel.Text .. "\n❌ Key tidak dikenali oleh server."
         end
     end)
 
@@ -154,17 +198,15 @@ local function LoadSystem()
     local AIMBOT_SMOOTH = 0.15
     local trollMenu = nil
 
-    -- ==================== FLY FIX ====================
+    -- ==================== FLY ====================
     local function toggleFly(state)
         if state then
             if not char or not char.HumanoidRootPart then return end
-            -- BodyVelocity buat gerak
             bodyVel = Instance.new("BodyVelocity")
             bodyVel.MaxForce = Vector3.new(1e9, 1e9, 1e9)
             bodyVel.Velocity = Vector3.new(0, 0, 0)
             bodyVel.Parent = char.HumanoidRootPart
 
-            -- BodyGyro buat stabil + arah
             bodyGyro = Instance.new("BodyGyro")
             bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
             bodyGyro.Parent = char.HumanoidRootPart
@@ -485,7 +527,7 @@ local function LoadSystem()
         elseif action == "Kill" then
             targetHumanoid.Health = 0
             
-        elseif action == "StealGun" then
+        elseif action == "Steal Gun" then
             for _, tool in pairs(targetChar:GetChildren()) do
                 if tool:IsA("Tool") then
                     tool.Parent = char
@@ -765,8 +807,7 @@ local function LoadSystem()
         hsSlider.Text = "5"
         hsSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
         hsSlider.Font = Enum.Font.GothamBold
-        hsSlider.TextSize = 13
-        hsSlider.Parent = mainFrame
+        hsSlider.TextSize = 13        hsSlider.Parent = mainFrame
         hsSlider.FocusLost:Connect(function()
             local val = tonumber(hsSlider.Text)
             if val and val >= 1 and val <= 10 then
@@ -811,7 +852,6 @@ local function LoadSystem()
         closeTroll.MouseButton1Click:Connect(function()
             trollMenu:Destroy()
             trollMenu = nil
-            -- Update toggle button di menu utama
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child:IsA("TextButton") and child.Text:find("Troll Menu") then
                     child.Text = "Troll Menu [OFF]"
@@ -841,7 +881,6 @@ local function LoadSystem()
             btn.MouseButton1Click:Connect(function()
                 local target = GetClosestTarget()
                 if target then
-                    -- Dapetin player dari target
                     for _, data in pairs(espData) do
                         if data.root == target then
                             TrollPlayer(action.name, data.plr)
@@ -849,7 +888,6 @@ local function LoadSystem()
                         end
                     end
                 else
-                    -- Kalo gak ada target, troll ke player random
                     local randPlayer = players:GetPlayers()[math.random(1, #players:GetPlayers())]
                     if randPlayer and randPlayer ~= player then
                         TrollPlayer(action.name, randPlayer)
