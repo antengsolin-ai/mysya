@@ -1,5 +1,5 @@
 --[[ 
-    INORYA XELEBOT - FINAL (TIMER DETIK + TAB FIX)
+    INORYA XELEBOT - FINAL ULTIMATE (TAB FIX + TIMER DETIK)
     API: https://bowarrowapjir.my.id/panel/api.php?key=KEY
 ]]
 
@@ -47,6 +47,8 @@ local bodyGyro = nil
 local remainingSeconds = 0
 local remainingText = "∞"
 local isLoggedIn = false
+local contentFrame = nil
+local contentLayout = nil
 
 -- =============================================
 -- FUNGSI HTTP
@@ -464,7 +466,7 @@ end
 -- UPDATE SAAT STATE BERUBAH
 -- =============================================
 local function OnStateChange(key)
-    if key == "ESP" or key == "Box" then
+    if key == "ESP" or key == "Box" or key == "Skeleton" or key == "Tracer" then
         UpdateESP()
     elseif key == "ShowFOV" or key == "FOVRadius" then
         UpdateFOV()
@@ -476,7 +478,7 @@ local function OnStateChange(key)
 end
 
 -- =============================================
--- MENU (TAB FIX)
+-- MENU (TAB FIX + STATE TETAP)
 -- =============================================
 local function CreateMenu()
     local oldMenu = playerGui:FindFirstChild("InoryaMenu")
@@ -614,7 +616,7 @@ local function CreateMenu()
         end
     end)
     
-    -- ===== TAB SYSTEM (FIX) =====
+    -- ===== TAB SYSTEM =====
     local tabBar = Instance.new("Frame")
     tabBar.Size = UDim2.new(1, 0, 0, 35)
     tabBar.Position = UDim2.new(0, 0, 0, 45)
@@ -627,7 +629,7 @@ local function CreateMenu()
     local currentTab = "AIM"
     
     -- Content Frame
-    local contentFrame = Instance.new("ScrollingFrame")
+    contentFrame = Instance.new("ScrollingFrame")
     contentFrame.Size = UDim2.new(1, 0, 1, -80)
     contentFrame.Position = UDim2.new(0, 0, 0, 80)
     contentFrame.BackgroundTransparency = 1
@@ -638,12 +640,12 @@ local function CreateMenu()
     contentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     contentFrame.Parent = mainFrame
     
-    local contentLayout = Instance.new("UIListLayout")
+    contentLayout = Instance.new("UIListLayout")
     contentLayout.Padding = UDim.new(0, 6)
     contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
     contentLayout.Parent = contentFrame
     
-    -- ===== HELPERS =====
+    -- ===== HELPERS (DENGAN STATE TETAP) =====
     local function CreateSection(text)
         local section = Instance.new("TextLabel")
         section.Size = UDim2.new(1, -10, 0, 28)
@@ -657,11 +659,12 @@ local function CreateMenu()
         return section
     end
     
+    -- ===== TOGGLE (BACA DARI STATE) =====
     local function CreateToggle(text, key)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, -10, 0, 36)
-        btn.BackgroundColor3 = Color3.fromRGB(20, 20, 50)
-        btn.Text = text .. " [OFF]"
+        btn.BackgroundColor3 = State[key] and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(20, 20, 50)
+        btn.Text = text .. (State[key] and " [ON]" or " [OFF]")
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btn.Font = Enum.Font.GothamBold
         btn.TextSize = 13
@@ -677,6 +680,7 @@ local function CreateMenu()
         return btn
     end
     
+    -- ===== SLIDER (BACA DARI STATE) =====
     local function CreateSlider(text, key, min, max, step)
         local holder = Instance.new("Frame")
         holder.Size = UDim2.new(1, -10, 0, 50)
@@ -785,7 +789,6 @@ local function CreateMenu()
             
         elseif tab == "MISC" then
             CreateSection("💾 CONFIG")
-            -- Bisa ditambah button save/load/reset nanti
             local info = Instance.new("TextLabel")
             info.Size = UDim2.new(1, -10, 0, 40)
             info.BackgroundTransparency = 1
