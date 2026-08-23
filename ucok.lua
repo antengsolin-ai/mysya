@@ -1,5 +1,5 @@
 --[[ 
-    INORYA XELEBOT - FULL SYSTEM
+    INORYA XELEBOT - FINAL (DRAG MENU + ANALOG FLY + SPEED 1000)
     API: https://bowarrowapjir.my.id/panel/api.php?key=KEY
 ]]
 
@@ -43,8 +43,14 @@ local espObjects = {}
 local fovCircle = nil
 local bodyVelocity = nil
 local bodyGyro = nil
-local flyKeys = {Forward=false, Backward=false, Left=false, Right=false, Up=false, Down=false}
 local noclipParts = {}
+
+-- ===== JOYSTICK ANALOG =====
+local joystickActive = false
+local joystickPos = Vector2.new(0, 0)
+local joystickStart = Vector2.new(0, 0)
+local joystickCurrent = Vector2.new(0, 0)
+local JOYSTICK_RADIUS = 50
 
 -- =============================================
 -- FUNGSI HTTP
@@ -66,8 +72,6 @@ local function ValidateKey(key)
     end
     
     local url = CONFIG.API_URL .. key
-    print("📡 Mengecek key: " .. url)
-    
     local response = HttpGet(url)
     if not response then
         return false, "Gagal menghubungi server."
@@ -84,7 +88,7 @@ local function ValidateKey(key)
                 writefile(CONFIG.KEY_FILE, key)
             end
         end)
-        return true, "✅ Login berhasil! Sisa waktu: " .. (data.remaining or "Unlimited")
+        return true, "✅ Login berhasil! Sisa: " .. (data.remaining or "Unlimited")
     else
         return false, data.message or "Key tidak valid."
     end
@@ -206,15 +210,6 @@ local function CreateLoginGUI(callback)
         end)
     end)
     
-    getKeyBtn.MouseButton1Click:Connect(function()
-        statusLabel.Text = "🔗 Hubungi Owner untuk mendapatkan key"
-        statusLabel.TextColor3 = Color3.fromRGB(0, 170, 255)
-        if setclipboard then
-            setclipboard("https://t.me/InoryaSupport")
-            statusLabel.Text = "📋 Link Telegram sudah disalin!"
-        end
-    end)
-    
     keyBox.FocusLost:Connect(function(enterPressed)
         if enterPressed then
             loginBtn.MouseButton1Click:Fire()
@@ -230,7 +225,6 @@ end
 
 -- ===== ESP =====
 local function UpdateESP()
-    -- Hapus ESP lama
     for _, obj in pairs(espObjects) do
         pcall(function() obj:Destroy() end)
     end
@@ -242,7 +236,6 @@ local function UpdateESP()
         if plr ~= player and plr.Character then
             local root = plr.Character:FindFirstChild("HumanoidRootPart")
             if root then
-                -- Box ESP
                 if State.Box then
                     local box = Instance.new("BoxHandleAdornment")
                     box.Size = Vector3.new(4, 5, 2)
@@ -255,7 +248,6 @@ local function UpdateESP()
                     table.insert(espObjects, box)
                 end
                 
-                -- Name
                 local tag = Instance.new("BillboardGui")
                 tag.Size = UDim2.new(0, 120, 0, 30)
                 tag.Adornee = root
@@ -339,31 +331,120 @@ local function ToggleNoclip(state)
 end
 
 -- =============================================
--- INPUT HANDLER
+-- JOYSTICK FLY
 -- =============================================
-userInput.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    local key = input.KeyCode
-    if key == Enum.KeyCode.W then flyKeys.Forward = true
-    elseif key == Enum.KeyCode.S then flyKeys.Backward = true
-    elseif key == Enum.KeyCode.A then flyKeys.Left = true
-    elseif key == Enum.KeyCode.D then flyKeys.Right = true
-    elseif key == Enum.KeyCode.Space then flyKeys.Up = true
-    elseif key == Enum.KeyCode.LeftControl then flyKeys.Down = true
-    end
-end)
+local function CreateJoystick()
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "FlyJoystick"
+    sg.Parent = playerGui
+    sg.ResetOnSpawn = false
+    
+    local bg = Instance.new("ImageLabel")
+    bg.Size = UDim2.new(0, 120, 0, 120)
+    bg.Position = UDim2.new(0.1, 0, 0.8, 0)
+    bg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    bg.BackgroundTransparency = 0.8
+    bg.Image = "rbxassetid://3570695787"
+    bg.Parent = sg
+    bg.Active = true
+    bg.Visible = false
+    
+    local knob = Instance.new("ImageLabel")
+    knob.Size = UDim2.new(0, 50, 0, 50)
+    knob.Position = UDim2.new(0.5, -25, 0.5, -25)
+    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    knob.BackgroundTransparency = 0.5
+    knob.Image = "rbxassetid://3570695787"
+    knob.Parent = bg
+    
+    local dragging = false
+    local startPos = nil
+    
+    bg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            startPos = input.Position
+            joystickStart = input.Position
+        end
+    end)
+    
+    bg.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            knob.Position = UDim2.new(0.5, -25, 0.5, -25)
+            joystickPos = Vector2.new(0, 0)
+        end
+    end)
+    
+    userInput.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - startPos
+            local dist = math.min(delta.Magnitude, JOYSTICK_RADIUS)
+            local angle = math.atan2(delta.Y, delta.X)
+            
+            local offsetX = math.cos(angle) * dist
+            local offsetY = math.sin(angle) * dist
+            
+            knob.Position = UDim2.new(0.5, -25 + offsetX, 0.5, -25 + offsetY)
+            joystickPos = Vector2.new(
+                math.clamp(delta.X / JOYSTICK_RADIUS, -1, 1),
+                math.clamp(delta.Y / JOYSTICK_RADIUS, -1, 1)
+            )
+        end
+    end)
+    
+    -- Tombol naik/turun
+    local upBtn = Instance.new("TextButton")
+    upBtn.Size = UDim2.new(0, 55, 0, 55)
+    upBtn.Position = UDim2.new(1, -70, 1, -140)
+    upBtn.Text = "▲"
+    upBtn.Font = Enum.Font.GothamBold
+    upBtn.TextSize = 24
+    upBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    upBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    upBtn.Parent = sg
+    upBtn.Visible = false
+    Instance.new("UICorner", upBtn)
+    
+    local downBtn = Instance.new("TextButton")
+    downBtn.Size = UDim2.new(0, 55, 0, 55)
+    downBtn.Position = UDim2.new(1, -70, 1, -80)
+    downBtn.Text = "▼"
+    downBtn.Font = Enum.Font.GothamBold
+    downBtn.TextSize = 24
+    downBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    downBtn.Parent = sg
+    downBtn.Visible = false
+    Instance.new("UICorner", downBtn)
+    
+    local flyKeys = {Up = false, Down = false}
+    
+    upBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            flyKeys.Up = true
+        end
+    end)
+    upBtn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            flyKeys.Up = false
+        end
+    end)
+    downBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            flyKeys.Down = true
+        end
+    end)
+    downBtn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            flyKeys.Down = false
+        end
+    end)
+    
+    return {sg = sg, bg = bg, upBtn = upBtn, downBtn = downBtn, flyKeys = flyKeys}
+end
 
-userInput.InputEnded:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    local key = input.KeyCode
-    if key == Enum.KeyCode.W then flyKeys.Forward = false
-    elseif key == Enum.KeyCode.S then flyKeys.Backward = false
-    elseif key == Enum.KeyCode.A then flyKeys.Left = false
-    elseif key == Enum.KeyCode.D then flyKeys.Right = false
-    elseif key == Enum.KeyCode.Space then flyKeys.Up = false
-    elseif key == Enum.KeyCode.LeftControl then flyKeys.Down = false
-    end
-end)
+local joystick = CreateJoystick()
 
 -- =============================================
 -- MAIN LOOP
@@ -394,15 +475,21 @@ runService.Heartbeat:Connect(function()
     if State.Fly and bodyVelocity and bodyGyro and hrp then
         local move = Vector3.new()
         local speed = State.FlySpeed
-        local forward = hrp.CFrame.LookVector
-        local right = hrp.CFrame.RightVector
         
-        if flyKeys.Forward then move = move + forward * speed end
-        if flyKeys.Backward then move = move - forward * speed end
-        if flyKeys.Left then move = move - right * speed end
-        if flyKeys.Right then move = move + right * speed end
-        if flyKeys.Up then move = move + Vector3.new(0, speed, 0) end
-        if flyKeys.Down then move = move - Vector3.new(0, speed, 0) end
+        -- JOYSTICK INPUT
+        local joyX = joystickPos.X
+        local joyY = joystickPos.Y
+        
+        if math.abs(joyX) > 0.1 or math.abs(joyY) > 0.1 then
+            local forward = hrp.CFrame.LookVector
+            local right = hrp.CFrame.RightVector
+            move = move + forward * (-joyY) * speed
+            move = move + right * joyX * speed
+        end
+        
+        -- Tombol naik/turun
+        if joystick.flyKeys.Up then move = move + Vector3.new(0, speed, 0) end
+        if joystick.flyKeys.Down then move = move - Vector3.new(0, speed, 0) end
         
         bodyVelocity.Velocity = move
         bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + camera.CFrame.LookVector)
@@ -448,7 +535,7 @@ runService.Heartbeat:Connect(function()
 end)
 
 -- =============================================
--- UPDATE FITUR SAAT STATE BERUBAH
+-- UPDATE SAAT STATE BERUBAH
 -- =============================================
 local function OnStateChange(key)
     if key == "ESP" or key == "Box" or key == "Skeleton" or key == "Tracer" then
@@ -457,13 +544,16 @@ local function OnStateChange(key)
         UpdateFOV()
     elseif key == "Fly" then
         ToggleFly(State.Fly)
+        joystick.bg.Visible = State.Fly
+        joystick.upBtn.Visible = State.Fly
+        joystick.downBtn.Visible = State.Fly
     elseif key == "Noclip" then
         ToggleNoclip(State.Noclip)
     end
 end
 
 -- =============================================
--- MENU MODERN (DENGAN FITUR)
+-- MENU DRAG + SLIDER
 -- =============================================
 local function CreateModernMenu()
     local oldMenu = playerGui:FindFirstChild("InoryaMenu")
@@ -480,7 +570,24 @@ local function CreateModernMenu()
     mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
+    mainFrame.Active = true
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 14)
+    
+    -- ===== DRAG =====
+    local dragging = false
+    local dragStart = nil
+    local frameStart = nil
+    
+    local function updateDrag(input)
+        if not dragging or not dragStart or not frameStart then return end
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(
+            frameStart.X.Scale,
+            frameStart.X.Offset + delta.X,
+            frameStart.Y.Scale,
+            frameStart.Y.Offset + delta.Y
+        )
+    end
     
     -- Header
     local header = Instance.new("Frame")
@@ -488,8 +595,30 @@ local function CreateModernMenu()
     header.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
     header.BorderSizePixel = 0
     header.Parent = mainFrame
+    header.Active = true
     Instance.new("UICorner", header).CornerRadius = UDim.new(0, 14)
     
+    header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            frameStart = mainFrame.Position
+        end
+    end)
+    
+    header.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    
+    userInput.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            updateDrag(input)
+        end
+    end)
+    
+    -- Title
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -70, 1, 0)
     title.Position = UDim2.new(0.05, 0, 0, 0)
@@ -501,6 +630,7 @@ local function CreateModernMenu()
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
     
+    -- Close
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 30, 0, 30)
     closeBtn.Position = UDim2.new(1, -38, 0, 8)
@@ -515,6 +645,7 @@ local function CreateModernMenu()
         screenGui:Destroy()
     end)
     
+    -- Minimize
     local minBtn = Instance.new("TextButton")
     minBtn.Size = UDim2.new(0, 30, 0, 30)
     minBtn.Position = UDim2.new(1, -72, 0, 8)
@@ -548,6 +679,7 @@ local function CreateModernMenu()
         end
     end)
     
+    -- Scroll
     local scrollFrame = Instance.new("ScrollingFrame")
     scrollFrame.Size = UDim2.new(1, 0, 1, -45)
     scrollFrame.Position = UDim2.new(0, 0, 0, 45)
@@ -599,7 +731,7 @@ local function CreateModernMenu()
         return btn
     end
     
-    -- ===== CREATE SLIDER =====
+    -- ===== CREATE SLIDER (SPEED SAMPE 1000) =====
     local function CreateSlider(text, key, min, max, step)
         local holder = Instance.new("Frame")
         holder.Size = UDim2.new(1, -10, 0, 50)
@@ -690,7 +822,7 @@ local function CreateModernMenu()
     
     CreateSection("🏃 PLAYER")
     CreateToggle("Speed", "Speed")
-    CreateSlider("Speed Value", "SpeedValue", 16, 250, 5)
+    CreateSlider("Speed Value", "SpeedValue", 16, 1000, 5) -- SAMPE 1000
     CreateToggle("Jump", "Jump")
     CreateSlider("Jump Power", "JumpValue", 50, 250, 10)
     CreateToggle("Fly", "Fly")
@@ -700,11 +832,14 @@ local function CreateModernMenu()
     task.wait(0.1)
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, content.AbsoluteContentSize.Y + 20)
     
-    -- Inisialisasi ESP
+    -- INIT
     UpdateESP()
     UpdateFOV()
     ToggleFly(State.Fly)
     ToggleNoclip(State.Noclip)
+    joystick.bg.Visible = State.Fly
+    joystick.upBtn.Visible = State.Fly
+    joystick.downBtn.Visible = State.Fly
     
     return screenGui
 end
@@ -712,7 +847,7 @@ end
 -- =============================================
 -- START
 -- =============================================
-print("⚡ INORYA XELEBOT - KEY SYSTEM STARTING...")
+print("⚡ INORYA XELEBOT - STARTING...")
 
 CreateLoginGUI(function()
     CreateModernMenu()
