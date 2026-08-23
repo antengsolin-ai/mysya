@@ -1,5 +1,5 @@
 --[[ 
-    INORYA XELEBOT - FINAL ULTIMATE (TAB FIX + TIMER DETIK)
+    INORYA XELEBOT - FINAL ULTIMATE (FITUR LENGKAP)
     API: https://bowarrowapjir.my.id/panel/api.php?key=KEY
 ]]
 
@@ -17,20 +17,40 @@ local players = game:GetService("Players")
 local CONFIG = {
     API_URL = "https://bowarrowapjir.my.id/panel/api.php?key=",
     KEY_FILE = "Zexzo.txt",
+    CONFIG_NAME = "InoryaConfig.json",
 }
 
 -- =============================================
--- VARIABEL FITUR
+-- STATE (SEMUA FITUR)
 -- =============================================
 local State = {
+    -- AIM
     Aimbot = false,
+    AimbotMode = "POV Kamera (FOV)",
+    AimTarget = "Head",
     Smoothness = 15,
-    FOVRadius = 150,
     ShowFOV = false,
+    FOVRadius = 150,
+    
+    -- VISUAL
     ESP = false,
+    ESPTeam = false,
+    ESPEnemy = false,
+    Distance360 = false,
+    NameDistance = false,
     Box = false,
     Skeleton = false,
     Tracer = false,
+    Health = false,
+    Chams = false,
+    ChamsTeam = false,
+    ChamsEnemy = false,
+    BoxStyle = "Corner Box",
+    TracerOrigin = "Top",
+    NameStyle = "Username",
+    Target = "All",
+    
+    -- PLAYER
     Speed = false,
     SpeedValue = 50,
     Jump = false,
@@ -38,6 +58,11 @@ local State = {
     Fly = false,
     FlySpeed = 50,
     Noclip = false,
+    NoFallDamage = false,
+    AutoMacro = false,
+    
+    -- TROLL
+    BypassTroll = false,
 }
 
 local espObjects = {}
@@ -49,6 +74,7 @@ local remainingText = "∞"
 local isLoggedIn = false
 local contentFrame = nil
 local contentLayout = nil
+local LockedTarget = nil
 
 -- =============================================
 -- FUNGSI HTTP
@@ -244,6 +270,7 @@ end
 -- FITUR-FITUR
 -- =============================================
 
+-- ===== NOCLIP =====
 local function ToggleNoclip(state)
     local char = player.Character
     if not char then return end
@@ -254,6 +281,7 @@ local function ToggleNoclip(state)
     end
 end
 
+-- ===== ESP =====
 local function UpdateESP()
     for _, obj in pairs(espObjects) do pcall(function() obj:Destroy() end) end
     espObjects = {}
@@ -317,6 +345,7 @@ for _, plr in pairs(players:GetPlayers()) do
     end)
 end
 
+-- ===== FOV =====
 local function UpdateFOV()
     if fovCircle then fovCircle:Destroy(); fovCircle = nil end
     if State.ShowFOV and State.Aimbot then
@@ -331,6 +360,7 @@ local function UpdateFOV()
     end
 end
 
+-- ===== FLY =====
 local function ToggleFly(state)
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -353,6 +383,129 @@ local function ToggleFly(state)
         if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
         if humanoid then humanoid.PlatformStand = false end
     end
+end
+
+-- ===== TROLL =====
+local function TrollPlayer(action, target)
+    if not target or not target.Character then return end
+    local targetChar = target.Character
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    local targetHumanoid = targetChar:FindFirstChild("Humanoid")
+    if not targetRoot or not targetHumanoid then return end
+    
+    if State.BypassTroll then
+        for _, plr in pairs(players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local r = plr.Character:FindFirstChild("HumanoidRootPart")
+                if r then
+                    local force = Instance.new("BodyVelocity")
+                    force.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+                    force.Velocity = Vector3.new(math.random(-500, 500), 500, math.random(-500, 500))
+                    force.Parent = r
+                    task.wait(0.5)
+                    force:Destroy()
+                end
+            end
+        end
+        return
+    end
+    
+    if action == "Freeze" then
+        targetHumanoid.WalkSpeed = 0
+        targetHumanoid.JumpPower = 0
+        targetHumanoid.PlatformStand = true
+        task.wait(3)
+        targetHumanoid.WalkSpeed = 16
+        targetHumanoid.JumpPower = 50
+        targetHumanoid.PlatformStand = false
+    elseif action == "Fling" then
+        local force = Instance.new("BodyVelocity")
+        force.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        force.Velocity = Vector3.new(math.random(-200, 200), 300, math.random(-200, 200))
+        force.Parent = targetRoot
+        task.wait(0.5)
+        force:Destroy()
+    elseif action == "Kill" then
+        targetHumanoid.Health = 0
+    elseif action == "Steal" then
+        for _, tool in pairs(targetChar:GetChildren()) do
+            if tool:IsA("Tool") then
+                tool.Parent = player.Character
+            end
+        end
+    elseif action == "Invisible" then
+        local char = player.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Transparency = 1
+                end
+            end
+            task.wait(5)
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Transparency = 0
+                end
+            end
+        end
+    end
+end
+
+-- ===== CONFIG =====
+local function SaveConfig()
+    if not writefile then return end
+    local settings = {}
+    for k, v in pairs(State) do
+        settings[k] = v
+    end
+    pcall(function()
+        writefile(CONFIG.CONFIG_NAME, httpService:JSONEncode(settings))
+    end)
+    print("✅ Config saved!")
+end
+
+local function LoadConfig()
+    if not isfile or not readfile then return end
+    if not isfile(CONFIG.CONFIG_NAME) then return end
+    local data = httpService:JSONDecode(readfile(CONFIG.CONFIG_NAME))
+    if data then
+        for k, v in pairs(data) do
+            if State[k] ~= nil then
+                State[k] = v
+            end
+        end
+        print("✅ Config loaded!")
+        for _, gui in pairs(playerGui:GetChildren()) do
+            if gui.Name == "InoryaMenu" then
+                gui:Destroy()
+            end
+        end
+        CreateMenu()
+    end
+end
+
+local function ResetConfig()
+    local defaults = {
+        SpeedValue = 50, JumpValue = 100, FlySpeed = 50,
+        Smoothness = 15, FOVRadius = 150,
+        AimbotMode = "POV Kamera (FOV)", AimTarget = "Head",
+        BoxStyle = "Corner Box", TracerOrigin = "Top",
+        NameStyle = "Username", Target = "All"
+    }
+    for k, v in pairs(State) do
+        if defaults[k] ~= nil then
+            State[k] = defaults[k]
+        else
+            State[k] = false
+        end
+    end
+    print("🔄 Config reset!")
+    for _, gui in pairs(playerGui:GetChildren()) do
+        if gui.Name == "InoryaMenu" then
+            gui:Destroy()
+        end
+    end
+    CreateMenu()
 end
 
 -- =============================================
@@ -403,6 +556,7 @@ runService.Heartbeat:Connect(function()
         end
     end
     
+    -- ===== AIMBOT =====
     if State.Aimbot and camera and hrp then
         local closest = nil
         local minDist = State.FOVRadius
@@ -433,7 +587,7 @@ runService.Heartbeat:Connect(function()
 end)
 
 -- =============================================
--- TIMER REALTIME (DENGAN DETIK)
+-- TIMER REALTIME
 -- =============================================
 local function UpdateTimer()
     while isLoggedIn do
@@ -445,7 +599,6 @@ local function UpdateTimer()
             local secs = remainingSeconds % 60
             remainingText = string.format("%d hari %02d:%02d:%02d", days, hours, mins, secs)
             
-            -- Update timer di semua menu
             for _, gui in pairs(playerGui:GetChildren()) do
                 if gui.Name == "InoryaMenu" then
                     for _, child in pairs(gui:GetDescendants()) do
@@ -478,7 +631,7 @@ local function OnStateChange(key)
 end
 
 -- =============================================
--- MENU (TAB FIX + STATE TETAP)
+-- MENU (FITUR LENGKAP)
 -- =============================================
 local function CreateMenu()
     local oldMenu = playerGui:FindFirstChild("InoryaMenu")
@@ -490,8 +643,8 @@ local function CreateMenu()
     screenGui.ResetOnSpawn = false
     
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 320, 0, 460)
-    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -230)
+    mainFrame.Size = UDim2.new(0, 320, 0, 480)
+    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -240)
     mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
@@ -555,7 +708,6 @@ local function CreateMenu()
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
     
-    -- Timer (dengan detik)
     local timerLabel = Instance.new("TextLabel")
     timerLabel.Name = "TimerLabel"
     timerLabel.Size = UDim2.new(0.5, 0, 0.5, 0)
@@ -568,7 +720,6 @@ local function CreateMenu()
     timerLabel.TextXAlignment = Enum.TextXAlignment.Left
     timerLabel.Parent = header
     
-    -- Close
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 30, 0, 30)
     closeBtn.Position = UDim2.new(1, -38, 0, 8)
@@ -606,7 +757,7 @@ local function CreateMenu()
             end
             minBtn.Text = "□"
         else
-            mainFrame.Size = UDim2.new(0, 320, 0, 460)
+            mainFrame.Size = UDim2.new(0, 320, 0, 480)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= header then
                     child.Visible = true
@@ -624,11 +775,10 @@ local function CreateMenu()
     tabBar.BorderSizePixel = 0
     tabBar.Parent = mainFrame
     
-    local tabs = {"AIM", "VISUAL", "PLAYER", "MISC"}
+    local tabs = {"AIM", "VISUAL", "PLAYER", "TROLL", "MISC"}
     local tabButtons = {}
     local currentTab = "AIM"
     
-    -- Content Frame
     contentFrame = Instance.new("ScrollingFrame")
     contentFrame.Size = UDim2.new(1, 0, 1, -80)
     contentFrame.Position = UDim2.new(0, 0, 0, 80)
@@ -645,7 +795,7 @@ local function CreateMenu()
     contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
     contentLayout.Parent = contentFrame
     
-    -- ===== HELPERS (DENGAN STATE TETAP) =====
+    -- ===== HELPERS =====
     local function CreateSection(text)
         local section = Instance.new("TextLabel")
         section.Size = UDim2.new(1, -10, 0, 28)
@@ -659,7 +809,6 @@ local function CreateMenu()
         return section
     end
     
-    -- ===== TOGGLE (BACA DARI STATE) =====
     local function CreateToggle(text, key)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, -10, 0, 36)
@@ -680,7 +829,6 @@ local function CreateMenu()
         return btn
     end
     
-    -- ===== SLIDER (BACA DARI STATE) =====
     local function CreateSlider(text, key, min, max, step)
         local holder = Instance.new("Frame")
         holder.Size = UDim2.new(1, -10, 0, 50)
@@ -756,12 +904,53 @@ local function CreateMenu()
         end)
     end
     
+    local function CreateDropdown(text, key, options)
+        local holder = Instance.new("Frame")
+        holder.Size = UDim2.new(1, -10, 0, 50)
+        holder.BackgroundTransparency = 1
+        holder.Parent = contentFrame
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.5, 0, 0, 20)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.TextColor3 = Color3.fromRGB(200, 200, 220)
+        label.Font = Enum.Font.Gotham
+        label.TextSize = 12
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = holder
+        
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.45, 0, 0, 32)
+        btn.Position = UDim2.new(0.5, 0, 0.2, 0)
+        btn.BackgroundColor3 = Color3.fromRGB(30, 30, 70)
+        btn.Text = tostring(State[key] or options[1])
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12
+        btn.Parent = holder
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+        
+        local index = 1
+        for i, opt in ipairs(options) do
+            if opt == State[key] then
+                index = i
+                break
+            end
+        end
+        
+        btn.MouseButton1Click:Connect(function()
+            index = index + 1
+            if index > #options then index = 1 end
+            State[key] = options[index]
+            btn.Text = tostring(State[key])
+            OnStateChange(key)
+        end)
+    end
+    
     -- ===== BUILD TAB CONTENT =====
     local function BuildTabContent(tab)
-        -- Bersihin contentFrame
-        for _, child in pairs(contentFrame:GetChildren()) do
-            child:Destroy()
-        end
+        for _, child in pairs(contentFrame:GetChildren()) do child:Destroy() end
         
         if tab == "AIM" then
             CreateSection("🎯 AIMBOT")
@@ -770,33 +959,129 @@ local function CreateMenu()
             CreateSlider("FOV Radius", "FOVRadius", 10, 400, 10)
             CreateSlider("Smoothness", "Smoothness", 1, 100, 1)
             
+            CreateSection("⚙️ AIM SETTINGS")
+            CreateDropdown("Aim Target", "AimTarget", {"Head", "Body"})
+            CreateDropdown("Aimbot Mode", "AimbotMode", {"POV Kamera (FOV)", "360° (Brutal)"})
+            
         elseif tab == "VISUAL" then
-            CreateSection("👁️ VISUAL")
+            CreateSection("👁️ ESP")
             CreateToggle("ESP", "ESP")
+            CreateToggle("ESP Team", "ESPTeam")
+            CreateToggle("ESP Enemy", "ESPEnemy")
+            CreateToggle("360° Distance", "Distance360")
+            CreateToggle("Name + Distance", "NameDistance")
+            
+            CreateSection("🎨 VISUAL")
             CreateToggle("Box", "Box")
             CreateToggle("Skeleton", "Skeleton")
             CreateToggle("Tracer", "Tracer")
+            CreateToggle("Health Bar", "Health")
+            CreateToggle("Chams", "Chams")
+            CreateToggle("Chams Team", "ChamsTeam")
+            CreateToggle("Chams Enemy", "ChamsEnemy")
+            
+            CreateSection("📦 STYLE ESP")
+            CreateDropdown("Box Style", "BoxStyle", {"Box", "Corner Box", "3D Box"})
+            CreateDropdown("Tracer Origin", "TracerOrigin", {"Bottom", "Center", "Top"})
+            CreateDropdown("Name Style", "NameStyle", {"Display Name", "Username", "Name + Username", "Hide"})
+            CreateDropdown("ESP Target", "Target", {"All", "Enemy", "Team"})
             
         elseif tab == "PLAYER" then
             CreateSection("🏃 PLAYER")
             CreateToggle("Speed", "Speed")
-            CreateSlider("Speed Value", "SpeedValue", 16, 250, 5)
+            CreateSlider("Speed Value", "SpeedValue", 16, 1000, 5)
             CreateToggle("Jump", "Jump")
-            CreateSlider("Jump Power", "JumpValue", 50, 250, 10)
+            CreateSlider("Jump Power", "JumpValue", 50, 500, 10)
             CreateToggle("Fly", "Fly")
             CreateSlider("Fly Speed", "FlySpeed", 10, 300, 10)
             CreateToggle("Noclip", "Noclip")
+            CreateToggle("No Fall Damage", "NoFallDamage")
+            CreateToggle("Auto Macro", "AutoMacro")
+            
+        elseif tab == "TROLL" then
+            CreateSection("🎭 TROLL PLAYER")
+            CreateToggle("Bypass Troll", "BypassTroll")
+            
+            local trollActions = {"Freeze", "Fling", "Kill", "Steal", "Invisible"}
+            for _, action in ipairs(trollActions) do
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(0.45, 0, 0, 36)
+                btn.BackgroundColor3 = Color3.fromRGB(30, 30, 70)
+                btn.Text = action
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                btn.Font = Enum.Font.GothamBold
+                btn.TextSize = 13
+                btn.Parent = contentFrame
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+                
+                btn.MouseButton1Click:Connect(function()
+                    local target = nil
+                    local minDist = 1000
+                    local char = player.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    
+                    for _, plr in pairs(players:GetPlayers()) do
+                        if plr ~= player and plr.Character then
+                            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                            if root and hrp then
+                                local dist = (root.Position - hrp.Position).Magnitude
+                                if dist < minDist then
+                                    minDist = dist
+                                    target = plr
+                                end
+                            end
+                        end
+                    end
+                    
+                    if target then
+                        TrollPlayer(action, target)
+                    end
+                end)
+            end
             
         elseif tab == "MISC" then
-            CreateSection("💾 CONFIG")
-            local info = Instance.new("TextLabel")
-            info.Size = UDim2.new(1, -10, 0, 40)
-            info.BackgroundTransparency = 1
-            info.Text = "Pengaturan tersimpan otomatis"
-            info.TextColor3 = Color3.fromRGB(180, 180, 200)
-            info.Font = Enum.Font.Gotham
-            info.TextSize = 12
-            info.Parent = contentFrame
+            CreateSection("💾 CONFIGURATION")
+            
+            local saveBtn = Instance.new("TextButton")
+            saveBtn.Size = UDim2.new(1, -10, 0, 36)
+            saveBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 70)
+            saveBtn.Text = "💾 SAVE CONFIG"
+            saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            saveBtn.Font = Enum.Font.GothamBold
+            saveBtn.TextSize = 13
+            saveBtn.Parent = contentFrame
+            Instance.new("UICorner", saveBtn).CornerRadius = UDim.new(0, 8)
+            saveBtn.MouseButton1Click:Connect(function()
+                SaveConfig()
+            end)
+            
+            local loadBtn = Instance.new("TextButton")
+            loadBtn.Size = UDim2.new(1, -10, 0, 36)
+            loadBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 70)
+            loadBtn.Text = "📂 LOAD CONFIG"
+            loadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            loadBtn.Font = Enum.Font.GothamBold
+            loadBtn.TextSize = 13
+            loadBtn.Parent = contentFrame
+            Instance.new("UICorner", loadBtn).CornerRadius = UDim.new(0, 8)
+            loadBtn.MouseButton1Click:Connect(function()
+                LoadConfig()
+            end)
+            
+            local resetBtn = Instance.new("TextButton")
+            resetBtn.Size = UDim2.new(1, -10, 0, 36)
+            resetBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+            resetBtn.Text = "🔄 RESET DEFAULT"
+            resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            resetBtn.Font = Enum.Font.GothamBold
+            resetBtn.TextSize = 13
+            resetBtn.Parent = contentFrame
+            Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 8)
+            resetBtn.MouseButton1Click:Connect(function()
+                ResetConfig()
+            end)
+            
+            CreateToggle("Auto Load", "AutoLoad")
         end
         
         task.wait(0.05)
@@ -814,8 +1099,8 @@ local function CreateMenu()
     
     for i, tab in ipairs(tabs) do
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.25, 0, 1, 0)
-        btn.Position = UDim2.new((i-1)*0.25, 0, 0, 0)
+        btn.Size = UDim2.new(0.2, 0, 1, 0)
+        btn.Position = UDim2.new((i-1)*0.2, 0, 0, 0)
         btn.BackgroundColor3 = (tab == "AIM") and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
         btn.Text = tab
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -829,7 +1114,6 @@ local function CreateMenu()
         end)
     end
     
-    -- Build default tab
     BuildTabContent("AIM")
     
     UpdateESP()
