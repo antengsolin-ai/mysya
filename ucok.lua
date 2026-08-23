@@ -1,4 +1,4 @@
---[[ INORYA XELEBOT - NO TAB EDITION (ALL IN ONE) ]]
+--[[ INORYA XELEBOT - HP EDITION (PASTI WORK) ]]
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -20,11 +20,18 @@ local CONFIG = {
 -- STATE
 -- =============================================
 local State = {
-    Aimbot = false, Smoothness = 15, FOVRadius = 150, ShowFOV = false,
-    ESP = false, Box = false, Skeleton = false, Tracer = false, Health = false,
-    Speed = false, SpeedValue = 50, Jump = false, JumpValue = 100,
-    Fly = false, FlySpeed = 50, Noclip = false,
-    BypassTroll = false,
+    Aimbot = false,
+    FOVRadius = 150,
+    ShowFOV = false,
+    ESP = false,
+    Box = false,
+    Speed = false,
+    SpeedValue = 50,
+    Jump = false,
+    JumpValue = 100,
+    Fly = false,
+    FlySpeed = 50,
+    Noclip = false,
 }
 
 local espObjects = {}
@@ -34,24 +41,37 @@ local bodyGyro = nil
 local remainingSeconds = 0
 local remainingText = "∞"
 local isLoggedIn = false
+local flyUp = false
+local flyDown = false
 
 -- =============================================
 -- FUNGSI HTTP & VALIDASI KEY
 -- =============================================
 local function HttpGet(url)
-    local success, result = pcall(function() return game:HttpGet(url) end)
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
     if success then return result end
     return nil
 end
 
 local function ValidateKey(key)
-    if not key or key == "" then return false, "Key tidak boleh kosong." end
+    if not key or key == "" then
+        return false, "Key tidak boleh kosong."
+    end
+    
     local url = CONFIG.API_URL .. key
     task.wait(3)
     local response = HttpGet(url)
-    if not response then return false, "Gagal menghubungi server." end
+    if not response then
+        return false, "Gagal menghubungi server."
+    end
+    
     local data = httpService:JSONDecode(response)
-    if not data then return false, "Response API tidak valid." end
+    if not data then
+        return false, "Response API tidak valid."
+    end
+    
     if data.success == true and data.valid == true then
         remainingSeconds = data.remaining_seconds or 0
         if remainingSeconds > 0 then
@@ -63,7 +83,11 @@ local function ValidateKey(key)
         else
             remainingText = "∞"
         end
-        pcall(function() if writefile then writefile(CONFIG.KEY_FILE, key) end end)
+        pcall(function()
+            if writefile then
+                writefile(CONFIG.KEY_FILE, key)
+            end
+        end)
         isLoggedIn = true
         return true, "✅ Login berhasil! Sisa: " .. remainingText
     else
@@ -77,10 +101,12 @@ end
 local function CreateLoginGUI(callback)
     local oldGui = playerGui:FindFirstChild("InoryaLogin")
     if oldGui then oldGui:Destroy() end
+    
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "InoryaLogin"
     screenGui.Parent = playerGui
     screenGui.ResetOnSpawn = false
+    
     local mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 360, 0, 300)
     mainFrame.Position = UDim2.new(0.5, -180, 0.5, -150)
@@ -88,9 +114,14 @@ local function CreateLoginGUI(callback)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 16)
+    
     local grad = Instance.new("UIGradient")
-    grad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 50, 150)), ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 20))})
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 50, 150)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 20))
+    })
     grad.Parent = mainFrame
+    
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 55)
     title.BackgroundColor3 = Color3.fromRGB(0, 60, 180)
@@ -100,6 +131,7 @@ local function CreateLoginGUI(callback)
     title.TextSize = 20
     title.Parent = mainFrame
     Instance.new("UICorner", title).CornerRadius = UDim.new(0, 16)
+    
     local subtitle = Instance.new("TextLabel")
     subtitle.Size = UDim2.new(1, -30, 0, 30)
     subtitle.Position = UDim2.new(0.05, 0, 0.2, 0)
@@ -109,6 +141,7 @@ local function CreateLoginGUI(callback)
     subtitle.Font = Enum.Font.Gotham
     subtitle.TextSize = 12
     subtitle.Parent = mainFrame
+    
     local keyBox = Instance.new("TextBox")
     keyBox.Size = UDim2.new(0.85, 0, 0, 42)
     keyBox.Position = UDim2.new(0.075, 0, 0.35, 0)
@@ -121,6 +154,7 @@ local function CreateLoginGUI(callback)
     keyBox.ClearTextOnFocus = false
     keyBox.Parent = mainFrame
     Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0, 8)
+    
     local loginBtn = Instance.new("TextButton")
     loginBtn.Size = UDim2.new(0.4, 0, 0, 42)
     loginBtn.Position = UDim2.new(0.075, 0, 0.58, 0)
@@ -131,6 +165,7 @@ local function CreateLoginGUI(callback)
     loginBtn.TextSize = 14
     loginBtn.Parent = mainFrame
     Instance.new("UICorner", loginBtn).CornerRadius = UDim.new(0, 8)
+    
     local getKeyBtn = Instance.new("TextButton")
     getKeyBtn.Size = UDim2.new(0.4, 0, 0, 42)
     getKeyBtn.Position = UDim2.new(0.525, 0, 0.58, 0)
@@ -141,6 +176,7 @@ local function CreateLoginGUI(callback)
     getKeyBtn.TextSize = 14
     getKeyBtn.Parent = mainFrame
     Instance.new("UICorner", getKeyBtn).CornerRadius = UDim.new(0, 8)
+    
     local statusLabel = Instance.new("TextLabel")
     statusLabel.Size = UDim2.new(0.9, 0, 0, 35)
     statusLabel.Position = UDim2.new(0.05, 0, 0.78, 0)
@@ -151,41 +187,56 @@ local function CreateLoginGUI(callback)
     statusLabel.TextSize = 11
     statusLabel.TextWrapped = true
     statusLabel.Parent = mainFrame
+    
     loginBtn.MouseButton1Click:Connect(function()
         local key = keyBox.Text
-        if key == "" then statusLabel.Text = "⚠️ Key tidak boleh kosong!"; statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0); return end
-        statusLabel.Text = "⏳ Memeriksa key..."; statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-        loginBtn.Text = "⏳..."; loginBtn.Active = false
+        if key == "" then
+            statusLabel.Text = "⚠️ Key tidak boleh kosong!"
+            statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+            return
+        end
+        
+        statusLabel.Text = "⏳ Memeriksa key..."
+        statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+        loginBtn.Text = "⏳..."
+        loginBtn.Active = false
+        
         task.spawn(function()
             local valid, msg = ValidateKey(key)
             if valid then
-                statusLabel.Text = "✅ " .. msg; statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+                statusLabel.Text = "✅ " .. msg
+                statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
                 task.wait(0.8)
                 screenGui:Destroy()
                 if callback then callback() end
             else
-                statusLabel.Text = "❌ " .. msg; statusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-                loginBtn.Text = "🔓 LOGIN"; loginBtn.Active = true
+                statusLabel.Text = "❌ " .. msg
+                statusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+                loginBtn.Text = "🔓 LOGIN"
+                loginBtn.Active = true
             end
         end)
     end)
-    keyBox.FocusLost:Connect(function(enterPressed) if enterPressed then loginBtn.MouseButton1Click:Fire() end end)
+    
+    keyBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            loginBtn.MouseButton1Click:Fire()
+        end
+    end)
+    
     return screenGui
 end
 
 -- =============================================
--- FITUR-FITUR (NOCLIP, ESP, FOV, FLY, TROLL)
+-- FITUR YANG WORK
 -- =============================================
-local function ToggleNoclip(state)
-    local char = player.Character
-    if not char then return end
-    for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = not state end end
-end
 
+-- ===== ESP (BOX + NAMA) =====
 local function UpdateESP()
     for _, obj in pairs(espObjects) do pcall(function() obj:Destroy() end) end
     espObjects = {}
     if not State.ESP then return end
+    
     for _, plr in pairs(players:GetPlayers()) do
         if plr ~= player and plr.Character then
             local root = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -201,6 +252,7 @@ local function UpdateESP()
                     box.Parent = plr.Character
                     table.insert(espObjects, box)
                 end
+                
                 local tag = Instance.new("BillboardGui")
                 tag.Size = UDim2.new(0, 120, 0, 30)
                 tag.Adornee = root
@@ -208,6 +260,7 @@ local function UpdateESP()
                 tag.MaxDistance = 300
                 tag.StudsOffset = Vector3.new(0, 3.5, 0)
                 tag.Parent = plr.Character
+                
                 local label = Instance.new("TextLabel")
                 label.Size = UDim2.new(1, 0, 1, 0)
                 label.BackgroundTransparency = 1
@@ -216,6 +269,7 @@ local function UpdateESP()
                 label.Font = Enum.Font.GothamBold
                 label.TextSize = 12
                 label.Parent = tag
+                
                 table.insert(espObjects, tag)
                 table.insert(espObjects, label)
             end
@@ -223,12 +277,25 @@ local function UpdateESP()
     end
 end
 
-task.spawn(function() while task.wait(0.5) do if State.ESP then UpdateESP() end end end)
-players.PlayerAdded:Connect(function() task.wait(0.5); if State.ESP then UpdateESP() end end)
+task.spawn(function()
+    while task.wait(0.5) do
+        if State.ESP then UpdateESP() end
+    end
+end)
+
+players.PlayerAdded:Connect(function()
+    task.wait(0.5)
+    if State.ESP then UpdateESP() end
+end)
+
 for _, plr in pairs(players:GetPlayers()) do
-    plr.CharacterAdded:Connect(function() task.wait(0.5); if State.ESP then UpdateESP() end end)
+    plr.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        if State.ESP then UpdateESP() end
+    end)
 end
 
+-- ===== FOV =====
 local function UpdateFOV()
     if fovCircle then fovCircle:Destroy(); fovCircle = nil end
     if State.ShowFOV and State.Aimbot then
@@ -243,16 +310,19 @@ local function UpdateFOV()
     end
 end
 
+-- ===== FLY =====
 local function ToggleFly(state)
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    
     if state then
         if not hrp or not humanoid then return end
         bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
         bodyVelocity.Parent = hrp
+        
         bodyGyro = Instance.new("BodyGyro")
         bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
         bodyGyro.Parent = hrp
@@ -265,32 +335,119 @@ local function ToggleFly(state)
     end
 end
 
+-- =============================================
+-- TOMBOL PANAH FLY
+-- =============================================
+local function CreateFlyButtons()
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "FlyButtons"
+    sg.Parent = playerGui
+    sg.ResetOnSpawn = false
+    sg.Enabled = false
+    
+    -- Tombol Up
+    local upBtn = Instance.new("TextButton")
+    upBtn.Size = UDim2.new(0, 55, 0, 55)
+    upBtn.Position = UDim2.new(0.8, 0, 0.6, 0)
+    upBtn.Text = "▲"
+    upBtn.Font = Enum.Font.GothamBold
+    upBtn.TextSize = 24
+    upBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    upBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    upBtn.Parent = sg
+    Instance.new("UICorner", upBtn)
+    
+    -- Tombol Down
+    local downBtn = Instance.new("TextButton")
+    downBtn.Size = UDim2.new(0, 55, 0, 55)
+    downBtn.Position = UDim2.new(0.8, 0, 0.75, 0)
+    downBtn.Text = "▼"
+    downBtn.Font = Enum.Font.GothamBold
+    downBtn.TextSize = 24
+    downBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    downBtn.Parent = sg
+    Instance.new("UICorner", downBtn)
+    
+    -- Tombol Kanan
+    local rightBtn = Instance.new("TextButton")
+    rightBtn.Size = UDim2.new(0, 55, 0, 55)
+    rightBtn.Position = UDim2.new(0.9, 0, 0.675, 0)
+    rightBtn.Text = "►"
+    rightBtn.Font = Enum.Font.GothamBold
+    rightBtn.TextSize = 24
+    rightBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    rightBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    rightBtn.Parent = sg
+    Instance.new("UICorner", rightBtn)
+    
+    -- Tombol Kiri
+    local leftBtn = Instance.new("TextButton")
+    leftBtn.Size = UDim2.new(0, 55, 0, 55)
+    leftBtn.Position = UDim2.new(0.7, 0, 0.675, 0)
+    leftBtn.Text = "◄"
+    leftBtn.Font = Enum.Font.GothamBold
+    leftBtn.TextSize = 24
+    leftBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    leftBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    leftBtn.Parent = sg
+    Instance.new("UICorner", leftBtn)
+    
+    -- ===== INPUT HANDLER =====
+    local keys = {Up = false, Down = false, Left = false, Right = false}
+    
+    upBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then keys.Up = true end
+    end)
+    upBtn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then keys.Up = false end
+    end)
+    
+    downBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then keys.Down = true end
+    end)
+    downBtn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then keys.Down = false end
+    end)
+    
+    rightBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then keys.Right = true end
+    end)
+    rightBtn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then keys.Right = false end
+    end)
+    
+    leftBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then keys.Left = true end
+    end)
+    leftBtn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then keys.Left = false end
+    end)
+    
+    return {sg = sg, keys = keys}
+end
+
+local flyButtons = CreateFlyButtons()
+
+-- =============================================
+-- TROLL (FREEZE, FLING, KILL, STEAL)
+-- =============================================
 local function TrollPlayer(action, target)
     if not target or not target.Character then return end
     local targetChar = target.Character
     local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
     local targetHumanoid = targetChar:FindFirstChild("Humanoid")
     if not targetRoot or not targetHumanoid then return end
-    if State.BypassTroll then
-        for _, plr in pairs(players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                local r = plr.Character:FindFirstChild("HumanoidRootPart")
-                if r then
-                    local force = Instance.new("BodyVelocity")
-                    force.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-                    force.Velocity = Vector3.new(math.random(-500, 500), 500, math.random(-500, 500))
-                    force.Parent = r
-                    task.wait(0.5)
-                    force:Destroy()
-                end
-            end
-        end
-        return
-    end
+    
     if action == "Freeze" then
-        targetHumanoid.WalkSpeed = 0; targetHumanoid.JumpPower = 0; targetHumanoid.PlatformStand = true
+        targetHumanoid.WalkSpeed = 0
+        targetHumanoid.JumpPower = 0
+        targetHumanoid.PlatformStand = true
         task.wait(3)
-        targetHumanoid.WalkSpeed = 16; targetHumanoid.JumpPower = 50; targetHumanoid.PlatformStand = false
+        targetHumanoid.WalkSpeed = 16
+        targetHumanoid.JumpPower = 50
+        targetHumanoid.PlatformStand = false
+        
     elseif action == "Fling" then
         local force = Instance.new("BodyVelocity")
         force.MaxForce = Vector3.new(1e9, 1e9, 1e9)
@@ -298,19 +455,96 @@ local function TrollPlayer(action, target)
         force.Parent = targetRoot
         task.wait(0.5)
         force:Destroy()
+        
     elseif action == "Kill" then
         targetHumanoid.Health = 0
+        
     elseif action == "Steal" then
-        for _, tool in pairs(targetChar:GetChildren()) do if tool:IsA("Tool") then tool.Parent = player.Character end end
-    elseif action == "Invisible" then
-        local char = player.Character
-        if char then
-            for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.Transparency = 1 end end
-            task.wait(5)
-            for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.Transparency = 0 end end
+        for _, tool in pairs(targetChar:GetChildren()) do
+            if tool:IsA("Tool") then
+                tool.Parent = player.Character
+            end
         end
     end
 end
+
+-- =============================================
+-- MAIN LOOP
+-- =============================================
+runService.Heartbeat:Connect(function()
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if humanoid then
+        if State.Speed then
+            humanoid.WalkSpeed = State.SpeedValue
+        else
+            humanoid.WalkSpeed = 16
+        end
+        
+        if State.Jump then
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = State.JumpValue
+        else
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = 50
+        end
+    end
+    
+    -- FLY DENGAN TOMBOL PANAH
+    if State.Fly and bodyVelocity and bodyGyro and hrp then
+        local move = Vector3.new()
+        local speed = State.FlySpeed
+        local forward = hrp.CFrame.LookVector
+        local right = hrp.CFrame.RightVector
+        
+        if flyButtons.keys.Up then move = move + forward * speed end
+        if flyButtons.keys.Down then move = move - forward * speed end
+        if flyButtons.keys.Left then move = move - right * speed end
+        if flyButtons.keys.Right then move = move + right * speed end
+        
+        bodyVelocity.Velocity = move
+        bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + camera.CFrame.LookVector)
+    end
+    
+    -- NOCLIP
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = not State.Noclip
+            end
+        end
+    end
+    
+    -- AIMBOT
+    if State.Aimbot and camera and hrp then
+        local closest = nil
+        local minDist = State.FOVRadius
+        
+        for _, plr in pairs(players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local screenPos, onScreen = camera:WorldToScreenPoint(root.Position)
+                    if onScreen then
+                        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                        if dist < minDist then
+                            minDist = dist
+                            closest = root
+                        end
+                    end
+                end
+            end
+        end
+        
+        if closest then
+            local targetCF = CFrame.lookAt(camera.CFrame.Position, closest.Position)
+            camera.CFrame = camera.CFrame:Lerp(targetCF, 0.15)
+        end
+    end
+end)
 
 -- =============================================
 -- TIMER REALTIME
@@ -324,6 +558,7 @@ local function UpdateTimer()
             local mins = math.floor((remainingSeconds % 3600) / 60)
             local secs = remainingSeconds % 60
             remainingText = string.format("%d hari %02d:%02d:%02d", days, hours, mins, secs)
+            
             for _, gui in pairs(playerGui:GetChildren()) do
                 if gui.Name == "InoryaMenu" then
                     for _, child in pairs(gui:GetDescendants()) do
@@ -341,73 +576,23 @@ local function UpdateTimer()
 end
 
 -- =============================================
--- MAIN LOOP
--- =============================================
-runService.Heartbeat:Connect(function()
-    local char = player.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        if State.Speed then humanoid.WalkSpeed = State.SpeedValue else humanoid.WalkSpeed = 16 end
-        if State.Jump then humanoid.UseJumpPower = true; humanoid.JumpPower = State.JumpValue else humanoid.UseJumpPower = true; humanoid.JumpPower = 50 end
-    end
-    if State.Fly and bodyVelocity and bodyGyro and hrp then
-        local move = Vector3.new()
-        local speed = State.FlySpeed
-        local forward = hrp.CFrame.LookVector
-        local right = hrp.CFrame.RightVector
-        if userInput:IsKeyDown(Enum.KeyCode.W) then move = move + forward * speed end
-        if userInput:IsKeyDown(Enum.KeyCode.S) then move = move - forward * speed end
-        if userInput:IsKeyDown(Enum.KeyCode.A) then move = move - right * speed end
-        if userInput:IsKeyDown(Enum.KeyCode.D) then move = move + right * speed end
-        if userInput:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, speed, 0) end
-        if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0, speed, 0) end
-        bodyVelocity.Velocity = move
-        bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + camera.CFrame.LookVector)
-    end
-    if char then
-        for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = not State.Noclip end end
-    end
-    if State.Aimbot and camera and hrp then
-        local closest = nil
-        local minDist = State.FOVRadius
-        for _, plr in pairs(players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                if root then
-                    local screenPos, onScreen = camera:WorldToScreenPoint(root.Position)
-                    if onScreen then
-                        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-                        if dist < minDist then
-                            minDist = dist
-                            closest = root
-                        end
-                    end
-                end
-            end
-        end
-        if closest then
-            local targetCF = CFrame.lookAt(camera.CFrame.Position, closest.Position)
-            local smooth = math.clamp(State.Smoothness / 100, 0.01, 1)
-            camera.CFrame = camera.CFrame:Lerp(targetCF, smooth)
-        end
-    end
-end)
-
--- =============================================
 -- UPDATE STATE
 -- =============================================
 local function OnStateChange(key)
-    if key == "ESP" or key == "Box" or key == "Skeleton" or key == "Tracer" then UpdateESP()
-    elseif key == "ShowFOV" or key == "FOVRadius" then UpdateFOV()
-    elseif key == "Fly" then ToggleFly(State.Fly)
-    elseif key == "Noclip" then ToggleNoclip(State.Noclip)
+    if key == "ESP" or key == "Box" then
+        UpdateESP()
+    elseif key == "ShowFOV" or key == "FOVRadius" then
+        UpdateFOV()
+    elseif key == "Fly" then
+        ToggleFly(State.Fly)
+        flyButtons.sg.Enabled = State.Fly
+    elseif key == "Noclip" then
+        ToggleNoclip(State.Noclip)
     end
 end
 
 -- =============================================
--- ALL IN ONE MENU (NO TAB)
+-- ALL IN ONE MENU
 -- =============================================
 local function CreateMenu()
     local oldMenu = playerGui:FindFirstChild("InoryaMenu")
@@ -428,7 +613,10 @@ local function CreateMenu()
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 14)
     
     local grad = Instance.new("UIGradient")
-    grad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 50, 150)), ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 20))})
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 50, 150)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 20))
+    })
     grad.Parent = mainFrame
     
     -- DRAG
@@ -442,20 +630,30 @@ local function CreateMenu()
     header.Parent = mainFrame
     header.Active = true
     Instance.new("UICorner", header).CornerRadius = UDim.new(0, 14)
+    
     header.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = input.Position; frameStart = mainFrame.Position
+            dragging = true
+            dragStart = input.Position
+            frameStart = mainFrame.Position
         end
     end)
+    
     header.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
     end)
+    
     userInput.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
-            mainFrame.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + delta.X, frameStart.Y.Scale, frameStart.Y.Offset + delta.Y)
+            mainFrame.Position = UDim2.new(
+                frameStart.X.Scale,
+                frameStart.X.Offset + delta.X,
+                frameStart.Y.Scale,
+                frameStart.Y.Offset + delta.Y
+            )
         end
     end)
     
@@ -492,7 +690,9 @@ local function CreateMenu()
     closeBtn.TextSize = 16
     closeBtn.Parent = header
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
-    closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+    closeBtn.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+    end)
     
     local minBtn = Instance.new("TextButton")
     minBtn.Size = UDim2.new(0, 30, 0, 30)
@@ -504,16 +704,25 @@ local function CreateMenu()
     minBtn.TextSize = 18
     minBtn.Parent = header
     Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 8)
+    
     local minimized = false
     minBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
         if minimized then
             mainFrame.Size = UDim2.new(0, 300, 0, 45)
-            for _, child in pairs(mainFrame:GetChildren()) do if child ~= header then child.Visible = false end end
+            for _, child in pairs(mainFrame:GetChildren()) do
+                if child ~= header then
+                    child.Visible = false
+                end
+            end
             minBtn.Text = "□"
         else
             mainFrame.Size = UDim2.new(0, 300, 0, 460)
-            for _, child in pairs(mainFrame:GetChildren()) do if child ~= header then child.Visible = true end end
+            for _, child in pairs(mainFrame:GetChildren()) do
+                if child ~= header then
+                    child.Visible = true
+                end
+            end
             minBtn.Text = "—"
         end
     end)
@@ -559,6 +768,7 @@ local function CreateMenu()
         btn.TextSize = 13
         btn.Parent = scrollFrame
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+        
         btn.MouseButton1Click:Connect(function()
             State[key] = not State[key]
             btn.Text = text .. (State[key] and " [ON]" or " [OFF]")
@@ -644,14 +854,10 @@ local function CreateMenu()
     CreateToggle("Aimbot", "Aimbot")
     CreateToggle("Show FOV", "ShowFOV")
     CreateSlider("FOV Radius", "FOVRadius", 10, 400, 10)
-    CreateSlider("Smoothness", "Smoothness", 1, 100, 1)
     
     CreateSection("👁️ VISUAL")
     CreateToggle("ESP", "ESP")
     CreateToggle("Box", "Box")
-    CreateToggle("Skeleton", "Skeleton")
-    CreateToggle("Tracer", "Tracer")
-    CreateToggle("Health", "Health")
     
     CreateSection("🏃 PLAYER")
     CreateToggle("Speed", "Speed")
@@ -663,8 +869,7 @@ local function CreateMenu()
     CreateToggle("Noclip", "Noclip")
     
     CreateSection("🎭 TROLL")
-    CreateToggle("Bypass Troll", "BypassTroll")
-    local trollActions = {"Freeze", "Fling", "Kill", "Steal", "Invisible"}
+    local trollActions = {"Freeze", "Fling", "Kill", "Steal"}
     for _, action in ipairs(trollActions) do
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0.45, 0, 0, 36)
@@ -703,6 +908,7 @@ local function CreateMenu()
     UpdateFOV()
     ToggleFly(State.Fly)
     ToggleNoclip(State.Noclip)
+    flyButtons.sg.Enabled = State.Fly
     
     return screenGui
 end
@@ -710,7 +916,8 @@ end
 -- =============================================
 -- START
 -- =============================================
-print("⚡ INORYA XELEBOT - STARTING...")
+print("⚡ INORYA XELEBOT - HP EDITION STARTING...")
+
 CreateLoginGUI(function()
     CreateMenu()
     task.spawn(UpdateTimer)
