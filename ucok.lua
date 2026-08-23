@@ -1,5 +1,5 @@
 --[[ 
-    INORYA XELEBOT - FINAL ULTIMATE (TAB FIX + TIMER + ESP REALTIME)
+    INORYA XELEBOT - MENU VVIP + KEY API SENDIRI
     API: https://bowarrowapjir.my.id/panel/api.php?key=KEY
 ]]
 
@@ -20,17 +20,20 @@ local CONFIG = {
 }
 
 -- =============================================
--- VARIABEL FITUR
+-- VARIABEL FITUR (DARI VVIP)
 -- =============================================
 local State = {
     Aimbot = false,
+    AimbotMode = "POV Kamera (FOV)",
+    AimTarget = "Head",
     Smoothness = 15,
-    FOVRadius = 150,
     ShowFOV = false,
+    FOVRadius = 150,
     ESP = false,
     Box = false,
     Skeleton = false,
     Tracer = false,
+    Health = false,
     Speed = false,
     SpeedValue = 50,
     Jump = false,
@@ -38,8 +41,7 @@ local State = {
     Fly = false,
     FlySpeed = 50,
     Noclip = false,
-    BypassTroll = false,
-    BypassAimbot = false,
+    AutoMacro = false,
 }
 
 local espObjects = {}
@@ -62,7 +64,7 @@ local function HttpGet(url)
 end
 
 -- =============================================
--- VALIDASI KEY (DENGAN DELAY 3 DETIK)
+-- VALIDASI KEY (PAKE API LO)
 -- =============================================
 local function ValidateKey(key)
     if not key or key == "" then
@@ -100,7 +102,7 @@ local function ValidateKey(key)
 end
 
 -- =============================================
--- LOGIN GUI
+-- LOGIN GUI (TETEP PAKE PUNYA LO)
 -- =============================================
 local function CreateLoginGUI(callback)
     local oldGui = playerGui:FindFirstChild("InoryaLogin")
@@ -200,7 +202,7 @@ local function CreateLoginGUI(callback)
             return
         end
         
-        statusLabel.Text = "⏳ Memeriksa key (3 detik)..."
+        statusLabel.Text = "⏳ Memeriksa key..."
         statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
         loginBtn.Text = "⏳..."
         loginBtn.Active = false
@@ -232,10 +234,10 @@ local function CreateLoginGUI(callback)
 end
 
 -- =============================================
--- FITUR-FITUR
+-- FITUR-FITUR (DARI VVIP)
 -- =============================================
 
--- ===== NOCLIP TEMBUS TEBAL =====
+-- ===== NOCLIP =====
 local function ToggleNoclip(state)
     local char = player.Character
     if not char then return end
@@ -245,21 +247,9 @@ local function ToggleNoclip(state)
             part.CanCollide = not state
         end
     end
-    
-    if state then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            task.spawn(function()
-                while State.Noclip and char and char.Parent do
-                    hrp.CFrame = hrp.CFrame
-                    task.wait(0.1)
-                end
-            end)
-        end
-    end
 end
 
--- ===== ESP REAL-TIME =====
+-- ===== ESP =====
 local function UpdateESP()
     for _, obj in pairs(espObjects) do
         pcall(function() obj:Destroy() end)
@@ -308,21 +298,13 @@ local function UpdateESP()
     end
 end
 
--- ===== LOOP ESP REAL-TIME =====
 task.spawn(function()
     while task.wait(0.5) do
-        if State.ESP then
-            UpdateESP()
-        end
+        if State.ESP then UpdateESP() end
     end
 end)
 
 players.PlayerAdded:Connect(function()
-    task.wait(0.5)
-    if State.ESP then UpdateESP() end
-end)
-
-players.PlayerRemoving:Connect(function()
     task.wait(0.5)
     if State.ESP then UpdateESP() end
 end)
@@ -334,7 +316,7 @@ for _, plr in pairs(players:GetPlayers()) do
     end)
 end
 
--- ===== FOV CIRCLE =====
+-- ===== FOV =====
 local function UpdateFOV()
     if fovCircle then
         fovCircle:Destroy()
@@ -381,88 +363,102 @@ local function ToggleFly(state)
 end
 
 -- =============================================
--- TROLL FUNCTIONS
+-- MAIN LOOP
 -- =============================================
-local function TrollPlayer(action, target)
-    if not target or not target.Character then return end
-    local targetChar = target.Character
-    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-    local targetHumanoid = targetChar:FindFirstChild("Humanoid")
+runService.Heartbeat:Connect(function()
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
     
-    if not targetRoot or not targetHumanoid then return end
+    if humanoid then
+        if State.Speed then
+            humanoid.WalkSpeed = State.SpeedValue
+        else
+            humanoid.WalkSpeed = 16
+        end
+        
+        if State.Jump then
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = State.JumpValue
+        else
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = 50
+        end
+    end
     
-    if State.BypassTroll then
+    if State.Fly and bodyVelocity and bodyGyro and hrp then
+        local move = Vector3.new()
+        local speed = State.FlySpeed
+        local forward = hrp.CFrame.LookVector
+        local right = hrp.CFrame.RightVector
+        
+        if userInput:IsKeyDown(Enum.KeyCode.W) then move = move + forward * speed end
+        if userInput:IsKeyDown(Enum.KeyCode.S) then move = move - forward * speed end
+        if userInput:IsKeyDown(Enum.KeyCode.A) then move = move - right * speed end
+        if userInput:IsKeyDown(Enum.KeyCode.D) then move = move + right * speed end
+        if userInput:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, speed, 0) end
+        if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0, speed, 0) end
+        
+        bodyVelocity.Velocity = move
+        bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + camera.CFrame.LookVector)
+    end
+    
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = not State.Noclip
+            end
+        end
+    end
+    
+    if State.Aimbot and camera and hrp then
+        local closest = nil
+        local minDist = State.FOVRadius
+        
         for _, plr in pairs(players:GetPlayers()) do
             if plr ~= player and plr.Character then
-                local r = plr.Character:FindFirstChild("HumanoidRootPart")
-                if r then
-                    local force = Instance.new("BodyVelocity")
-                    force.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-                    force.Velocity = Vector3.new(math.random(-500, 500), 500, math.random(-500, 500))
-                    force.Parent = r
-                    task.wait(0.5)
-                    force:Destroy()
+                local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local screenPos, onScreen = camera:WorldToScreenPoint(root.Position)
+                    if onScreen then
+                        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                        if dist < minDist then
+                            minDist = dist
+                            closest = root
+                        end
+                    end
                 end
             end
         end
-        return
-    end
-    
-    if action == "Freeze" then
-        targetHumanoid.WalkSpeed = 0
-        targetHumanoid.JumpPower = 0
-        targetHumanoid.PlatformStand = true
-        task.wait(3)
-        targetHumanoid.WalkSpeed = 16
-        targetHumanoid.JumpPower = 50
-        targetHumanoid.PlatformStand = false
         
-    elseif action == "Fling" then
-        local force = Instance.new("BodyVelocity")
-        force.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        force.Velocity = Vector3.new(math.random(-200, 200), 300, math.random(-200, 200))
-        force.Parent = targetRoot
-        task.wait(0.5)
-        force:Destroy()
-        
-    elseif action == "Kill" then
-        targetHumanoid.Health = 0
-        
-    elseif action == "Steal" then
-        for _, tool in pairs(targetChar:GetChildren()) do
-            if tool:IsA("Tool") then
-                tool.Parent = player.Character
-            end
+        if closest then
+            local targetCF = CFrame.lookAt(camera.CFrame.Position, closest.Position)
+            local smooth = math.clamp(State.Smoothness / 100, 0.01, 1)
+            camera.CFrame = camera.CFrame:Lerp(targetCF, smooth)
         end
+    end
+end)
+
+-- =============================================
+-- UPDATE SAAT STATE BERUBAH
+-- =============================================
+local function OnStateChange(key)
+    if key == "ESP" or key == "Box" or key == "Skeleton" or key == "Tracer" then
+        UpdateESP()
+    elseif key == "ShowFOV" or key == "FOVRadius" then
+        UpdateFOV()
+    elseif key == "Fly" then
+        ToggleFly(State.Fly)
+    elseif key == "Noclip" then
+        ToggleNoclip(State.Noclip)
     end
 end
 
 -- =============================================
--- UPDATE TIMER REALTIME
+-- MENU (COPY DARI VVIP MODS)
 -- =============================================
-local function UpdateTimer()
-    while isLoggedIn do
-        if keyExpiry ~= "Unlimited" then
-            local now = os.time()
-            local exp = os.time({year = tonumber(keyExpiry:sub(7,10)), month = tonumber(keyExpiry:sub(4,5)), day = tonumber(keyExpiry:sub(1,2)), hour = tonumber(keyExpiry:sub(12,13)) or 0, min = tonumber(keyExpiry:sub(15,16)) or 0})
-            local diff = exp - now
-            if diff > 0 then
-                local days = math.floor(diff / 86400)
-                local hours = math.floor((diff % 86400) / 3600)
-                local mins = math.floor((diff % 3600) / 60)
-                remainingTime = string.format("%d hari %02d:%02d", days, hours, mins)
-            else
-                remainingTime = "Expired"
-            end
-        end
-        task.wait(1)
-    end
-end
-
--- =============================================
--- MENU TAB (AIM, VISUAL, PLAYER, TROLL)
--- =============================================
-local function CreateModernMenu()
+local function CreateMenu()
     local oldMenu = playerGui:FindFirstChild("InoryaMenu")
     if oldMenu then oldMenu:Destroy() end
     
@@ -472,9 +468,9 @@ local function CreateModernMenu()
     screenGui.ResetOnSpawn = false
     
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 340, 0, 480)
-    mainFrame.Position = UDim2.new(0.5, -170, 0.5, -240)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
+    mainFrame.Size = UDim2.new(0, 320, 0, 460)
+    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -230)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
     mainFrame.Active = true
@@ -526,7 +522,6 @@ local function CreateModernMenu()
         end
     end)
     
-    -- ===== HEADER =====
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(0.5, 0, 1, 0)
     title.Position = UDim2.new(0.05, 0, 0, 0)
@@ -538,7 +533,7 @@ local function CreateModernMenu()
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
     
-    -- Timer (di kiri bawah)
+    -- Timer
     local timerLabel = Instance.new("TextLabel")
     timerLabel.Size = UDim2.new(0.5, 0, 0.5, 0)
     timerLabel.Position = UDim2.new(0.05, 0, 0.5, 0)
@@ -588,7 +583,7 @@ local function CreateModernMenu()
     minBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
         if minimized then
-            mainFrame.Size = UDim2.new(0, 340, 0, 45)
+            mainFrame.Size = UDim2.new(0, 320, 0, 45)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= header then
                     child.Visible = false
@@ -596,7 +591,7 @@ local function CreateModernMenu()
             end
             minBtn.Text = "□"
         else
-            mainFrame.Size = UDim2.new(0, 340, 0, 480)
+            mainFrame.Size = UDim2.new(0, 320, 0, 460)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= header then
                     child.Visible = true
@@ -614,7 +609,7 @@ local function CreateModernMenu()
     tabBar.BorderSizePixel = 0
     tabBar.Parent = mainFrame
     
-    local tabs = {"AIM", "VISUAL", "PLAYER", "TROLL"}
+    local tabs = {"AIM", "VISUAL", "PLAYER", "MISC"}
     local tabButtons = {}
     local currentTab = "AIM"
     
@@ -648,7 +643,6 @@ local function CreateModernMenu()
         end)
     end
     
-    -- ===== CONTENT FRAME =====
     local contentFrame = Instance.new("ScrollingFrame")
     contentFrame.Size = UDim2.new(1, 0, 1, -80)
     contentFrame.Position = UDim2.new(0, 0, 0, 80)
@@ -741,7 +735,7 @@ local function CreateModernMenu()
         fill.Parent = bar
         Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
         
-        local dragging = false
+        local draggingSlider = false
         
         local function update(input)
             local rel = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
@@ -756,20 +750,20 @@ local function CreateModernMenu()
         
         bar.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
+                draggingSlider = true
                 update(input)
             end
         end)
         
         userInput.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 update(input)
             end
         end)
         
         userInput.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
+                draggingSlider = false
             end
         end)
     end
@@ -782,7 +776,6 @@ local function CreateModernMenu()
             CreateToggle("Show FOV", "ShowFOV")
             CreateSlider("FOV Radius", "FOVRadius", 10, 400, 10)
             CreateSlider("Smoothness", "Smoothness", 1, 100, 1)
-            CreateToggle("Bypass Aimbot", "BypassAimbot")
             
         elseif tab == "VISUAL" then
             CreateSection("👁️ VISUAL")
@@ -790,53 +783,21 @@ local function CreateModernMenu()
             CreateToggle("Box", "Box")
             CreateToggle("Skeleton", "Skeleton")
             CreateToggle("Tracer", "Tracer")
+            CreateToggle("Health", "Health")
             
         elseif tab == "PLAYER" then
             CreateSection("🏃 PLAYER")
             CreateToggle("Speed", "Speed")
-            CreateSlider("Speed Value", "SpeedValue", 16, 1000, 5)
+            CreateSlider("Speed Value", "SpeedValue", 16, 250, 5)
             CreateToggle("Jump", "Jump")
             CreateSlider("Jump Power", "JumpValue", 50, 250, 10)
             CreateToggle("Fly", "Fly")
             CreateSlider("Fly Speed", "FlySpeed", 10, 300, 10)
             CreateToggle("Noclip", "Noclip")
             
-        elseif tab == "TROLL" then
-            CreateSection("🎭 TROLL")
-            CreateToggle("Bypass Troll", "BypassTroll")
-            
-            local trollActions = {"Freeze", "Fling", "Kill", "Steal"}
-            for _, action in ipairs(trollActions) do
-                local btn = Instance.new("TextButton")
-                btn.Size = UDim2.new(0.45, 0, 0, 36)
-                btn.BackgroundColor3 = Color3.fromRGB(30, 30, 70)
-                btn.Text = action
-                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                btn.Font = Enum.Font.GothamBold
-                btn.TextSize = 13
-                btn.Parent = contentFrame
-                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-                
-                btn.MouseButton1Click:Connect(function()
-                    local target = nil
-                    local minDist = 1000
-                    for _, plr in pairs(players:GetPlayers()) do
-                        if plr ~= player and plr.Character then
-                            local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                            if root then
-                                local dist = (root.Position - (player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position or Vector3.new())).Magnitude
-                                if dist < minDist then
-                                    minDist = dist
-                                    target = plr
-                                end
-                            end
-                        end
-                    end
-                    if target then
-                        TrollPlayer(action, target)
-                    end
-                end)
-            end
+        elseif tab == "MISC" then
+            CreateSection("💾 CONFIG")
+            CreateToggle("Auto Macro", "AutoMacro")
         end
     end
     
@@ -854,27 +815,11 @@ local function CreateModernMenu()
 end
 
 -- =============================================
--- UPDATE SAAT STATE BERUBAH
--- =============================================
-local function OnStateChange(key)
-    if key == "ESP" or key == "Box" or key == "Skeleton" or key == "Tracer" then
-        UpdateESP()
-    elseif key == "ShowFOV" or key == "FOVRadius" then
-        UpdateFOV()
-    elseif key == "Fly" then
-        ToggleFly(State.Fly)
-    elseif key == "Noclip" then
-        ToggleNoclip(State.Noclip)
-    end
-end
-
--- =============================================
 -- START
 -- =============================================
-print("⚡ INORYA XELEBOT - ULTIMATE STARTING...")
+print("⚡ INORYA XELEBOT - STARTING...")
 
 CreateLoginGUI(function()
-    CreateModernMenu()
-    task.spawn(UpdateTimer)
-    print("✅ INORYA XELEBOT - ULTIMATE ACTIVE!")
+    CreateMenu()
+    print("✅ INORYA XELEBOT - ACTIVE!")
 end)
