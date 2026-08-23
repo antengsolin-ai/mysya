@@ -1,5 +1,5 @@
 --[[ 
-    INORYA XELEBOT - FINAL (DRAG MENU + ANALOG FLY + SPEED 1000)
+    INORYA XELEBOT - FINAL ULTIMATE (TROLL TAB + BYPASS + TIMER)
     API: https://bowarrowapjir.my.id/panel/api.php?key=KEY
 ]]
 
@@ -9,6 +9,7 @@ local httpService = game:GetService("HttpService")
 local userInput = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
 local camera = workspace.CurrentCamera
+local players = game:GetService("Players")
 
 -- =============================================
 -- KONFIGURASI
@@ -37,20 +38,17 @@ local State = {
     Fly = false,
     FlySpeed = 50,
     Noclip = false,
+    BypassTroll = false,
+    BypassAimbot = false,
 }
 
 local espObjects = {}
 local fovCircle = nil
 local bodyVelocity = nil
 local bodyGyro = nil
-local noclipParts = {}
-
--- ===== JOYSTICK ANALOG =====
-local joystickActive = false
-local joystickPos = Vector2.new(0, 0)
-local joystickStart = Vector2.new(0, 0)
-local joystickCurrent = Vector2.new(0, 0)
-local JOYSTICK_RADIUS = 50
+local keyExpiry = "Unlimited"
+local remainingTime = "∞"
+local isLoggedIn = false
 
 -- =============================================
 -- FUNGSI HTTP
@@ -64,7 +62,7 @@ local function HttpGet(url)
 end
 
 -- =============================================
--- VALIDASI KEY
+-- VALIDASI KEY (DENGAN DELAY 3 DETIK)
 -- =============================================
 local function ValidateKey(key)
     if not key or key == "" then
@@ -72,6 +70,11 @@ local function ValidateKey(key)
     end
     
     local url = CONFIG.API_URL .. key
+    print("📡 Mengecek key: " .. url)
+    
+    -- DELAY 3 DETIK biar gak cepet-cepet
+    task.wait(3)
+    
     local response = HttpGet(url)
     if not response then
         return false, "Gagal menghubungi server."
@@ -83,12 +86,15 @@ local function ValidateKey(key)
     end
     
     if data.success == true and data.valid == true then
+        keyExpiry = data.expiry_text or "Unlimited"
+        remainingTime = data.remaining or "∞"
         pcall(function()
             if writefile then
                 writefile(CONFIG.KEY_FILE, key)
             end
         end)
-        return true, "✅ Login berhasil! Sisa: " .. (data.remaining or "Unlimited")
+        isLoggedIn = true
+        return true, "✅ Login berhasil! Sisa: " .. remainingTime
     else
         return false, data.message or "Key tidak valid."
     end
@@ -109,16 +115,24 @@ local function CreateLoginGUI(callback)
     local mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 360, 0, 300)
     mainFrame.Position = UDim2.new(0.5, -180, 0.5, -150)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 16)
     
+    -- Gradient Biru-Hitam
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 50, 150)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 20))
+    })
+    grad.Parent = mainFrame
+    
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 55)
-    title.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+    title.BackgroundColor3 = Color3.fromRGB(0, 60, 180)
     title.Text = "⚡ INORYA XELEBOT"
-    title.TextColor3 = Color3.fromRGB(0, 180, 255)
+    title.TextColor3 = Color3.fromRGB(100, 200, 255)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 20
     title.Parent = mainFrame
@@ -129,7 +143,7 @@ local function CreateLoginGUI(callback)
     subtitle.Position = UDim2.new(0.05, 0, 0.2, 0)
     subtitle.BackgroundTransparency = 1
     subtitle.Text = "🔑 Masukkan Key untuk mengaktifkan sistem"
-    subtitle.TextColor3 = Color3.fromRGB(180, 180, 210)
+    subtitle.TextColor3 = Color3.fromRGB(180, 180, 220)
     subtitle.Font = Enum.Font.Gotham
     subtitle.TextSize = 12
     subtitle.Parent = mainFrame
@@ -137,7 +151,7 @@ local function CreateLoginGUI(callback)
     local keyBox = Instance.new("TextBox")
     keyBox.Size = UDim2.new(0.85, 0, 0, 42)
     keyBox.Position = UDim2.new(0.075, 0, 0.35, 0)
-    keyBox.BackgroundColor3 = Color3.fromRGB(35, 35, 55)
+    keyBox.BackgroundColor3 = Color3.fromRGB(20, 20, 50)
     keyBox.Text = ""
     keyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     keyBox.Font = Enum.Font.Gotham
@@ -150,7 +164,7 @@ local function CreateLoginGUI(callback)
     local loginBtn = Instance.new("TextButton")
     loginBtn.Size = UDim2.new(0.4, 0, 0, 42)
     loginBtn.Position = UDim2.new(0.075, 0, 0.58, 0)
-    loginBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    loginBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 255)
     loginBtn.Text = "🔓 LOGIN"
     loginBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     loginBtn.Font = Enum.Font.GothamBold
@@ -161,7 +175,7 @@ local function CreateLoginGUI(callback)
     local getKeyBtn = Instance.new("TextButton")
     getKeyBtn.Size = UDim2.new(0.4, 0, 0, 42)
     getKeyBtn.Position = UDim2.new(0.525, 0, 0.58, 0)
-    getKeyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 75)
+    getKeyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 70)
     getKeyBtn.Text = "🔗 GET KEY"
     getKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     getKeyBtn.Font = Enum.Font.GothamBold
@@ -174,7 +188,7 @@ local function CreateLoginGUI(callback)
     statusLabel.Position = UDim2.new(0.05, 0, 0.78, 0)
     statusLabel.BackgroundTransparency = 1
     statusLabel.Text = "💡 Silakan masukkan key Anda"
-    statusLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
+    statusLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
     statusLabel.Font = Enum.Font.Gotham
     statusLabel.TextSize = 11
     statusLabel.TextWrapped = true
@@ -188,7 +202,7 @@ local function CreateLoginGUI(callback)
             return
         end
         
-        statusLabel.Text = "⏳ Memeriksa key..."
+        statusLabel.Text = "⏳ Memeriksa key (3 detik)..."
         statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
         loginBtn.Text = "⏳..."
         loginBtn.Active = false
@@ -223,6 +237,31 @@ end
 -- FITUR-FITUR
 -- =============================================
 
+-- ===== NOCLIP TEMBUS TEBAL =====
+local function ToggleNoclip(state)
+    local char = player.Character
+    if not char then return end
+    
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = not state
+        end
+    end
+    
+    -- Paksa tembus pake SetPrimaryPartCFrame
+    if state then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            task.spawn(function()
+                while State.Noclip and char and char.Parent do
+                    hrp.CFrame = hrp.CFrame
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end
+end
+
 -- ===== ESP =====
 local function UpdateESP()
     for _, obj in pairs(espObjects) do
@@ -232,7 +271,7 @@ local function UpdateESP()
     
     if not State.ESP then return end
     
-    for _, plr in pairs(game:GetPlayers()) do
+    for _, plr in pairs(players:GetPlayers()) do
         if plr ~= player and plr.Character then
             local root = plr.Character:FindFirstChild("HumanoidRootPart")
             if root then
@@ -318,242 +357,89 @@ local function ToggleFly(state)
     end
 end
 
--- ===== NOCLIP =====
-local function ToggleNoclip(state)
-    local char = player.Character
-    if not char then return end
-    
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = not state
-        end
-    end
-end
-
 -- =============================================
--- JOYSTICK FLY
+-- TROLL FUNCTIONS
 -- =============================================
-local function CreateJoystick()
-    local sg = Instance.new("ScreenGui")
-    sg.Name = "FlyJoystick"
-    sg.Parent = playerGui
-    sg.ResetOnSpawn = false
+local function TrollPlayer(action, target)
+    if not target or not target.Character then return end
+    local targetChar = target.Character
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    local targetHumanoid = targetChar:FindFirstChild("Humanoid")
     
-    local bg = Instance.new("ImageLabel")
-    bg.Size = UDim2.new(0, 120, 0, 120)
-    bg.Position = UDim2.new(0.1, 0, 0.8, 0)
-    bg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    bg.BackgroundTransparency = 0.8
-    bg.Image = "rbxassetid://3570695787"
-    bg.Parent = sg
-    bg.Active = true
-    bg.Visible = false
+    if not targetRoot or not targetHumanoid then return end
     
-    local knob = Instance.new("ImageLabel")
-    knob.Size = UDim2.new(0, 50, 0, 50)
-    knob.Position = UDim2.new(0.5, -25, 0.5, -25)
-    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    knob.BackgroundTransparency = 0.5
-    knob.Image = "rbxassetid://3570695787"
-    knob.Parent = bg
-    
-    local dragging = false
-    local startPos = nil
-    
-    bg.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            startPos = input.Position
-            joystickStart = input.Position
-        end
-    end)
-    
-    bg.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-            knob.Position = UDim2.new(0.5, -25, 0.5, -25)
-            joystickPos = Vector2.new(0, 0)
-        end
-    end)
-    
-    userInput.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.Touch then
-            local delta = input.Position - startPos
-            local dist = math.min(delta.Magnitude, JOYSTICK_RADIUS)
-            local angle = math.atan2(delta.Y, delta.X)
-            
-            local offsetX = math.cos(angle) * dist
-            local offsetY = math.sin(angle) * dist
-            
-            knob.Position = UDim2.new(0.5, -25 + offsetX, 0.5, -25 + offsetY)
-            joystickPos = Vector2.new(
-                math.clamp(delta.X / JOYSTICK_RADIUS, -1, 1),
-                math.clamp(delta.Y / JOYSTICK_RADIUS, -1, 1)
-            )
-        end
-    end)
-    
-    -- Tombol naik/turun
-    local upBtn = Instance.new("TextButton")
-    upBtn.Size = UDim2.new(0, 55, 0, 55)
-    upBtn.Position = UDim2.new(1, -70, 1, -140)
-    upBtn.Text = "▲"
-    upBtn.Font = Enum.Font.GothamBold
-    upBtn.TextSize = 24
-    upBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    upBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    upBtn.Parent = sg
-    upBtn.Visible = false
-    Instance.new("UICorner", upBtn)
-    
-    local downBtn = Instance.new("TextButton")
-    downBtn.Size = UDim2.new(0, 55, 0, 55)
-    downBtn.Position = UDim2.new(1, -70, 1, -80)
-    downBtn.Text = "▼"
-    downBtn.Font = Enum.Font.GothamBold
-    downBtn.TextSize = 24
-    downBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    downBtn.Parent = sg
-    downBtn.Visible = false
-    Instance.new("UICorner", downBtn)
-    
-    local flyKeys = {Up = false, Down = false}
-    
-    upBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            flyKeys.Up = true
-        end
-    end)
-    upBtn.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            flyKeys.Up = false
-        end
-    end)
-    downBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            flyKeys.Down = true
-        end
-    end)
-    downBtn.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            flyKeys.Down = false
-        end
-    end)
-    
-    return {sg = sg, bg = bg, upBtn = upBtn, downBtn = downBtn, flyKeys = flyKeys}
-end
-
-local joystick = CreateJoystick()
-
--- =============================================
--- MAIN LOOP
--- =============================================
-runService.Heartbeat:Connect(function()
-    local char = player.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    
-    -- ===== SPEED & JUMP =====
-    if humanoid then
-        if State.Speed then
-            humanoid.WalkSpeed = State.SpeedValue
-        else
-            humanoid.WalkSpeed = 16
-        end
-        
-        if State.Jump then
-            humanoid.UseJumpPower = true
-            humanoid.JumpPower = State.JumpValue
-        else
-            humanoid.UseJumpPower = true
-            humanoid.JumpPower = 50
-        end
-    end
-    
-    -- ===== FLY =====
-    if State.Fly and bodyVelocity and bodyGyro and hrp then
-        local move = Vector3.new()
-        local speed = State.FlySpeed
-        
-        -- JOYSTICK INPUT
-        local joyX = joystickPos.X
-        local joyY = joystickPos.Y
-        
-        if math.abs(joyX) > 0.1 or math.abs(joyY) > 0.1 then
-            local forward = hrp.CFrame.LookVector
-            local right = hrp.CFrame.RightVector
-            move = move + forward * (-joyY) * speed
-            move = move + right * joyX * speed
-        end
-        
-        -- Tombol naik/turun
-        if joystick.flyKeys.Up then move = move + Vector3.new(0, speed, 0) end
-        if joystick.flyKeys.Down then move = move - Vector3.new(0, speed, 0) end
-        
-        bodyVelocity.Velocity = move
-        bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + camera.CFrame.LookVector)
-    end
-    
-    -- ===== NOCLIP =====
-    if char then
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = not State.Noclip
-            end
-        end
-    end
-    
-    -- ===== AIMBOT =====
-    if State.Aimbot and camera and hrp then
-        local closest = nil
-        local minDist = State.FOVRadius
-        
-        for _, plr in pairs(game:GetPlayers()) do
+    -- BYPASS TROLL: lempar semua player
+    if State.BypassTroll then
+        for _, plr in pairs(players:GetPlayers()) do
             if plr ~= player and plr.Character then
-                local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                if root then
-                    local screenPos, onScreen = camera:WorldToScreenPoint(root.Position)
-                    if onScreen then
-                        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-                        if dist < minDist then
-                            minDist = dist
-                            closest = root
-                        end
-                    end
+                local r = plr.Character:FindFirstChild("HumanoidRootPart")
+                if r then
+                    local force = Instance.new("BodyVelocity")
+                    force.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+                    force.Velocity = Vector3.new(math.random(-500, 500), 500, math.random(-500, 500))
+                    force.Parent = r
+                    task.wait(0.5)
+                    force:Destroy()
                 end
             end
         end
-        
-        if closest then
-            local targetCF = CFrame.lookAt(camera.CFrame.Position, closest.Position)
-            local smooth = math.clamp(State.Smoothness / 100, 0.01, 1)
-            camera.CFrame = camera.CFrame:Lerp(targetCF, smooth)
-        end
+        return
     end
-end)
-
--- =============================================
--- UPDATE SAAT STATE BERUBAH
--- =============================================
-local function OnStateChange(key)
-    if key == "ESP" or key == "Box" or key == "Skeleton" or key == "Tracer" then
-        UpdateESP()
-    elseif key == "ShowFOV" or key == "FOVRadius" then
-        UpdateFOV()
-    elseif key == "Fly" then
-        ToggleFly(State.Fly)
-        joystick.bg.Visible = State.Fly
-        joystick.upBtn.Visible = State.Fly
-        joystick.downBtn.Visible = State.Fly
-    elseif key == "Noclip" then
-        ToggleNoclip(State.Noclip)
+    
+    if action == "Freeze" then
+        targetHumanoid.WalkSpeed = 0
+        targetHumanoid.JumpPower = 0
+        targetHumanoid.PlatformStand = true
+        task.wait(3)
+        targetHumanoid.WalkSpeed = 16
+        targetHumanoid.JumpPower = 50
+        targetHumanoid.PlatformStand = false
+        
+    elseif action == "Fling" then
+        local force = Instance.new("BodyVelocity")
+        force.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        force.Velocity = Vector3.new(math.random(-200, 200), 300, math.random(-200, 200))
+        force.Parent = targetRoot
+        task.wait(0.5)
+        force:Destroy()
+        
+    elseif action == "Kill" then
+        targetHumanoid.Health = 0
+        
+    elseif action == "Steal" then
+        for _, tool in pairs(targetChar:GetChildren()) do
+            if tool:IsA("Tool") then
+                tool.Parent = player.Character
+            end
+        end
     end
 end
 
 -- =============================================
--- MENU DRAG + SLIDER
+-- UPDATE TIMER REALTIME
+-- =============================================
+local function UpdateTimer()
+    while isLoggedIn do
+        if keyExpiry ~= "Unlimited" then
+            -- Hitung sisa waktu realtime
+            local now = os.time()
+            local exp = os.time({year = tonumber(keyExpiry:sub(7,10)), month = tonumber(keyExpiry:sub(4,5)), day = tonumber(keyExpiry:sub(1,2)), hour = tonumber(keyExpiry:sub(12,13)) or 0, min = tonumber(keyExpiry:sub(15,16)) or 0})
+            local diff = exp - now
+            if diff > 0 then
+                local days = math.floor(diff / 86400)
+                local hours = math.floor((diff % 86400) / 3600)
+                local mins = math.floor((diff % 3600) / 60)
+                remainingTime = string.format("%d hari %02d:%02d", days, hours, mins)
+            else
+                remainingTime = "Expired"
+            end
+        end
+        task.wait(1)
+    end
+end
+
+-- =============================================
+-- MENU TAB (AIM, VISUAL, PLAYER, TROLL)
 -- =============================================
 local function CreateModernMenu()
     local oldMenu = playerGui:FindFirstChild("InoryaMenu")
@@ -565,34 +451,29 @@ local function CreateModernMenu()
     screenGui.ResetOnSpawn = false
     
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 320, 0, 460)
-    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -230)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
+    mainFrame.Size = UDim2.new(0, 340, 0, 480)
+    mainFrame.Position = UDim2.new(0.5, -170, 0.5, -240)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
     mainFrame.Active = true
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 14)
+    
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 50, 150)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 20))
+    })
+    grad.Parent = mainFrame
     
     -- ===== DRAG =====
     local dragging = false
     local dragStart = nil
     local frameStart = nil
     
-    local function updateDrag(input)
-        if not dragging or not dragStart or not frameStart then return end
-        local delta = input.Position - dragStart
-        mainFrame.Position = UDim2.new(
-            frameStart.X.Scale,
-            frameStart.X.Offset + delta.X,
-            frameStart.Y.Scale,
-            frameStart.Y.Offset + delta.Y
-        )
-    end
-    
-    -- Header
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, 0, 0, 45)
-    header.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+    header.BackgroundColor3 = Color3.fromRGB(0, 60, 180)
     header.BorderSizePixel = 0
     header.Parent = mainFrame
     header.Active = true
@@ -614,21 +495,47 @@ local function CreateModernMenu()
     
     userInput.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            updateDrag(input)
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(
+                frameStart.X.Scale,
+                frameStart.X.Offset + delta.X,
+                frameStart.Y.Scale,
+                frameStart.Y.Offset + delta.Y
+            )
         end
     end)
     
-    -- Title
+    -- ===== HEADER =====
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -70, 1, 0)
+    title.Size = UDim2.new(1, -120, 1, 0)
     title.Position = UDim2.new(0.05, 0, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "⚡ INORYA XELEBOT"
-    title.TextColor3 = Color3.fromRGB(0, 180, 255)
+    title.TextColor3 = Color3.fromRGB(100, 200, 255)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 16
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
+    
+    -- Timer
+    local timerLabel = Instance.new("TextLabel")
+    timerLabel.Size = UDim2.new(0, 120, 1, 0)
+    timerLabel.Position = UDim2.new(1, -120, 0, 0)
+    timerLabel.BackgroundTransparency = 1
+    timerLabel.Text = "⏳ " .. remainingTime
+    timerLabel.TextColor3 = Color3.fromRGB(0, 255, 200)
+    timerLabel.Font = Enum.Font.GothamBold
+    timerLabel.TextSize = 11
+    timerLabel.TextXAlignment = Enum.TextXAlignment.Right
+    timerLabel.Parent = header
+    
+    -- Update timer realtime
+    task.spawn(function()
+        while screenGui and screenGui.Parent do
+            timerLabel.Text = "⏳ " .. remainingTime
+            task.wait(1)
+        end
+    end)
     
     -- Close
     local closeBtn = Instance.new("TextButton")
@@ -649,7 +556,7 @@ local function CreateModernMenu()
     local minBtn = Instance.new("TextButton")
     minBtn.Size = UDim2.new(0, 30, 0, 30)
     minBtn.Position = UDim2.new(1, -72, 0, 8)
-    minBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 75)
+    minBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 70)
     minBtn.Text = "—"
     minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     minBtn.Font = Enum.Font.GothamBold
@@ -661,7 +568,7 @@ local function CreateModernMenu()
     minBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
         if minimized then
-            mainFrame.Size = UDim2.new(0, 320, 0, 45)
+            mainFrame.Size = UDim2.new(0, 340, 0, 45)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= header then
                     child.Visible = false
@@ -669,7 +576,7 @@ local function CreateModernMenu()
             end
             minBtn.Text = "□"
         else
-            mainFrame.Size = UDim2.new(0, 320, 0, 460)
+            mainFrame.Size = UDim2.new(0, 340, 0, 480)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= header then
                     child.Visible = true
@@ -679,64 +586,101 @@ local function CreateModernMenu()
         end
     end)
     
-    -- Scroll
-    local scrollFrame = Instance.new("ScrollingFrame")
-    scrollFrame.Size = UDim2.new(1, 0, 1, -45)
-    scrollFrame.Position = UDim2.new(0, 0, 0, 45)
-    scrollFrame.BackgroundTransparency = 1
-    scrollFrame.BorderSizePixel = 0
-    scrollFrame.ScrollBarThickness = 4
-    scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(50, 50, 70)
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scrollFrame.Parent = mainFrame
+    -- ===== TAB SYSTEM =====
+    local tabBar = Instance.new("Frame")
+    tabBar.Size = UDim2.new(1, 0, 0, 35)
+    tabBar.Position = UDim2.new(0, 0, 0, 45)
+    tabBar.BackgroundColor3 = Color3.fromRGB(0, 40, 120)
+    tabBar.BorderSizePixel = 0
+    tabBar.Parent = mainFrame
     
-    local content = Instance.new("UIListLayout")
-    content.Padding = UDim.new(0, 6)
-    content.SortOrder = Enum.SortOrder.LayoutOrder
-    content.Parent = scrollFrame
+    local tabs = {"AIM", "VISUAL", "PLAYER", "TROLL"}
+    local tabButtons = {}
+    local currentTab = "AIM"
     
-    -- ===== CREATE SECTION =====
+    local function SwitchTab(tab)
+        currentTab = tab
+        for _, btn in pairs(tabButtons) do
+            btn.BackgroundColor3 = btn.Text == tab and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
+        end
+        -- Update konten tab
+        for _, child in pairs(contentFrame:GetChildren()) do child:Destroy() end
+        BuildTabContent(tab)
+    end
+    
+    for i, tab in ipairs(tabs) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.25, 0, 1, 0)
+        btn.Position = UDim2.new((i-1)*0.25, 0, 0, 0)
+        btn.BackgroundColor3 = tab == "AIM" and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
+        btn.Text = tab
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 13
+        btn.Parent = tabBar
+        btn.Name = tab
+        table.insert(tabButtons, btn)
+        btn.MouseButton1Click:Connect(function()
+            SwitchTab(tab)
+        end)
+    end
+    
+    -- ===== CONTENT FRAME =====
+    local contentFrame = Instance.new("ScrollingFrame")
+    contentFrame.Size = UDim2.new(1, 0, 1, -80)
+    contentFrame.Position = UDim2.new(0, 0, 0, 80)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.BorderSizePixel = 0
+    contentFrame.ScrollBarThickness = 4
+    contentFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 80, 200)
+    contentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    contentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    contentFrame.Parent = mainFrame
+    
+    local contentLayout = Instance.new("UIListLayout")
+    contentLayout.Padding = UDim.new(0, 6)
+    contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    contentLayout.Parent = contentFrame
+    
+    -- ===== HELPERS =====
     local function CreateSection(text)
         local section = Instance.new("TextLabel")
         section.Size = UDim2.new(1, -10, 0, 28)
-        section.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+        section.BackgroundColor3 = Color3.fromRGB(0, 100, 255)
         section.Text = text
         section.TextColor3 = Color3.fromRGB(255, 255, 255)
         section.Font = Enum.Font.GothamBold
         section.TextSize = 13
-        section.Parent = scrollFrame
+        section.Parent = contentFrame
         Instance.new("UICorner", section).CornerRadius = UDim.new(0, 6)
         return section
     end
     
-    -- ===== CREATE TOGGLE =====
     local function CreateToggle(text, key)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, -10, 0, 36)
-        btn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        btn.BackgroundColor3 = Color3.fromRGB(20, 20, 50)
         btn.Text = text .. " [OFF]"
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btn.Font = Enum.Font.GothamBold
         btn.TextSize = 13
-        btn.Parent = scrollFrame
+        btn.Parent = contentFrame
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
         
         btn.MouseButton1Click:Connect(function()
             State[key] = not State[key]
             btn.Text = text .. (State[key] and " [ON]" or " [OFF]")
-            btn.BackgroundColor3 = State[key] and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(40, 40, 60)
+            btn.BackgroundColor3 = State[key] and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(20, 20, 50)
             OnStateChange(key)
         end)
         return btn
     end
     
-    -- ===== CREATE SLIDER (SPEED SAMPE 1000) =====
     local function CreateSlider(text, key, min, max, step)
         local holder = Instance.new("Frame")
         holder.Size = UDim2.new(1, -10, 0, 50)
         holder.BackgroundTransparency = 1
-        holder.Parent = scrollFrame
+        holder.Parent = contentFrame
         
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(0.6, 0, 0, 20)
@@ -753,7 +697,7 @@ local function CreateModernMenu()
         valueLabel.Position = UDim2.new(0.7, 0, 0, 0)
         valueLabel.BackgroundTransparency = 1
         valueLabel.Text = tostring(State[key])
-        valueLabel.TextColor3 = Color3.fromRGB(0, 180, 255)
+        valueLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
         valueLabel.Font = Enum.Font.GothamBold
         valueLabel.TextSize = 12
         valueLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -762,14 +706,14 @@ local function CreateModernMenu()
         local bar = Instance.new("Frame")
         bar.Size = UDim2.new(1, 0, 0, 6)
         bar.Position = UDim2.new(0, 0, 0, 26)
-        bar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        bar.BackgroundColor3 = Color3.fromRGB(20, 20, 50)
         bar.BorderSizePixel = 0
         bar.Parent = holder
         Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
         
         local fill = Instance.new("Frame")
         fill.Size = UDim2.new((State[key] - min) / (max - min), 0, 1, 0)
-        fill.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
+        fill.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
         fill.BorderSizePixel = 0
         fill.Parent = bar
         Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
@@ -807,49 +751,107 @@ local function CreateModernMenu()
         end)
     end
     
-    -- ===== BUILD MENU =====
-    CreateSection("🎯 AIMBOT")
-    CreateToggle("Aimbot", "Aimbot")
-    CreateToggle("Show FOV", "ShowFOV")
-    CreateSlider("FOV Radius", "FOVRadius", 10, 400, 10)
-    CreateSlider("Smoothness", "Smoothness", 1, 100, 1)
+    -- ===== BUILD TAB CONTENT =====
+    local function BuildTabContent(tab)
+        if tab == "AIM" then
+            CreateSection("🎯 AIMBOT")
+            CreateToggle("Aimbot", "Aimbot")
+            CreateToggle("Show FOV", "ShowFOV")
+            CreateSlider("FOV Radius", "FOVRadius", 10, 400, 10)
+            CreateSlider("Smoothness", "Smoothness", 1, 100, 1)
+            CreateToggle("Bypass Aimbot", "BypassAimbot")
+            
+        elseif tab == "VISUAL" then
+            CreateSection("👁️ VISUAL")
+            CreateToggle("ESP", "ESP")
+            CreateToggle("Box", "Box")
+            CreateToggle("Skeleton", "Skeleton")
+            CreateToggle("Tracer", "Tracer")
+            
+        elseif tab == "PLAYER" then
+            CreateSection("🏃 PLAYER")
+            CreateToggle("Speed", "Speed")
+            CreateSlider("Speed Value", "SpeedValue", 16, 1000, 5)
+            CreateToggle("Jump", "Jump")
+            CreateSlider("Jump Power", "JumpValue", 50, 250, 10)
+            CreateToggle("Fly", "Fly")
+            CreateSlider("Fly Speed", "FlySpeed", 10, 300, 10)
+            CreateToggle("Noclip", "Noclip")
+            
+        elseif tab == "TROLL" then
+            CreateSection("🎭 TROLL")
+            CreateToggle("Bypass Troll", "BypassTroll")
+            
+            local trollActions = {"Freeze", "Fling", "Kill", "Steal"}
+            for _, action in ipairs(trollActions) do
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(0.45, 0, 0, 36)
+                btn.BackgroundColor3 = Color3.fromRGB(30, 30, 70)
+                btn.Text = action
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                btn.Font = Enum.Font.GothamBold
+                btn.TextSize = 13
+                btn.Parent = contentFrame
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+                
+                btn.MouseButton1Click:Connect(function()
+                    local target = nil
+                    local minDist = 1000
+                    for _, plr in pairs(players:GetPlayers()) do
+                        if plr ~= player and plr.Character then
+                            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                            if root then
+                                local dist = (root.Position - (player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position or Vector3.new())).Magnitude
+                                if dist < minDist then
+                                    minDist = dist
+                                    target = plr
+                                end
+                            end
+                        end
+                    end
+                    if target then
+                        TrollPlayer(action, target)
+                    end
+                end)
+            end
+        end
+    end
     
-    CreateSection("👁️ VISUAL")
-    CreateToggle("ESP", "ESP")
-    CreateToggle("Box", "Box")
-    CreateToggle("Skeleton", "Skeleton")
-    CreateToggle("Tracer", "Tracer")
-    
-    CreateSection("🏃 PLAYER")
-    CreateToggle("Speed", "Speed")
-    CreateSlider("Speed Value", "SpeedValue", 16, 1000, 5) -- SAMPE 1000
-    CreateToggle("Jump", "Jump")
-    CreateSlider("Jump Power", "JumpValue", 50, 250, 10)
-    CreateToggle("Fly", "Fly")
-    CreateSlider("Fly Speed", "FlySpeed", 10, 300, 10)
-    CreateToggle("Noclip", "Noclip")
+    BuildTabContent("AIM")
     
     task.wait(0.1)
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, content.AbsoluteContentSize.Y + 20)
+    contentFrame.CanvasSize = UDim2.new(0, 0, 0, contentLayout.AbsoluteContentSize.Y + 20)
     
-    -- INIT
     UpdateESP()
     UpdateFOV()
     ToggleFly(State.Fly)
     ToggleNoclip(State.Noclip)
-    joystick.bg.Visible = State.Fly
-    joystick.upBtn.Visible = State.Fly
-    joystick.downBtn.Visible = State.Fly
     
     return screenGui
 end
 
 -- =============================================
+-- UPDATE SAAT STATE BERUBAH
+-- =============================================
+local function OnStateChange(key)
+    if key == "ESP" or key == "Box" or key == "Skeleton" or key == "Tracer" then
+        UpdateESP()
+    elseif key == "ShowFOV" or key == "FOVRadius" then
+        UpdateFOV()
+    elseif key == "Fly" then
+        ToggleFly(State.Fly)
+    elseif key == "Noclip" then
+        ToggleNoclip(State.Noclip)
+    end
+end
+
+-- =============================================
 -- START
 -- =============================================
-print("⚡ INORYA XELEBOT - STARTING...")
+print("⚡ INORYA XELEBOT - ULTIMATE STARTING...")
 
 CreateLoginGUI(function()
     CreateModernMenu()
-    print("✅ INORYA XELEBOT - FULL SYSTEM ACTIVE!")
+    task.spawn(UpdateTimer)
+    print("✅ INORYA XELEBOT - ULTIMATE ACTIVE!")
 end)
