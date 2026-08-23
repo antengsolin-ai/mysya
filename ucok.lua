@@ -1,5 +1,5 @@
 --[[ 
-    INORYA XELEBOT - FINAL ULTIMATE (FITUR LENGKAP)
+    INORYA XELEBOT - FINAL ULTIMATE (SEMUA FITUR)
     API: https://bowarrowapjir.my.id/panel/api.php?key=KEY
 ]]
 
@@ -74,7 +74,6 @@ local remainingText = "∞"
 local isLoggedIn = false
 local contentFrame = nil
 local contentLayout = nil
-local LockedTarget = nil
 
 -- =============================================
 -- FUNGSI HTTP
@@ -451,63 +450,6 @@ local function TrollPlayer(action, target)
     end
 end
 
--- ===== CONFIG =====
-local function SaveConfig()
-    if not writefile then return end
-    local settings = {}
-    for k, v in pairs(State) do
-        settings[k] = v
-    end
-    pcall(function()
-        writefile(CONFIG.CONFIG_NAME, httpService:JSONEncode(settings))
-    end)
-    print("✅ Config saved!")
-end
-
-local function LoadConfig()
-    if not isfile or not readfile then return end
-    if not isfile(CONFIG.CONFIG_NAME) then return end
-    local data = httpService:JSONDecode(readfile(CONFIG.CONFIG_NAME))
-    if data then
-        for k, v in pairs(data) do
-            if State[k] ~= nil then
-                State[k] = v
-            end
-        end
-        print("✅ Config loaded!")
-        for _, gui in pairs(playerGui:GetChildren()) do
-            if gui.Name == "InoryaMenu" then
-                gui:Destroy()
-            end
-        end
-        CreateMenu()
-    end
-end
-
-local function ResetConfig()
-    local defaults = {
-        SpeedValue = 50, JumpValue = 100, FlySpeed = 50,
-        Smoothness = 15, FOVRadius = 150,
-        AimbotMode = "POV Kamera (FOV)", AimTarget = "Head",
-        BoxStyle = "Corner Box", TracerOrigin = "Top",
-        NameStyle = "Username", Target = "All"
-    }
-    for k, v in pairs(State) do
-        if defaults[k] ~= nil then
-            State[k] = defaults[k]
-        else
-            State[k] = false
-        end
-    end
-    print("🔄 Config reset!")
-    for _, gui in pairs(playerGui:GetChildren()) do
-        if gui.Name == "InoryaMenu" then
-            gui:Destroy()
-        end
-    end
-    CreateMenu()
-end
-
 -- =============================================
 -- MAIN LOOP
 -- =============================================
@@ -556,7 +498,6 @@ runService.Heartbeat:Connect(function()
         end
     end
     
-    -- ===== AIMBOT =====
     if State.Aimbot and camera and hrp then
         local closest = nil
         local minDist = State.FOVRadius
@@ -631,7 +572,7 @@ local function OnStateChange(key)
 end
 
 -- =============================================
--- MENU (FITUR LENGKAP)
+-- MENU (SEMUA FITUR)
 -- =============================================
 local function CreateMenu()
     local oldMenu = playerGui:FindFirstChild("InoryaMenu")
@@ -643,8 +584,8 @@ local function CreateMenu()
     screenGui.ResetOnSpawn = false
     
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 320, 0, 480)
-    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -240)
+    mainFrame.Size = UDim2.new(0, 330, 0, 480)
+    mainFrame.Position = UDim2.new(0.5, -165, 0.5, -240)
     mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
@@ -749,7 +690,7 @@ local function CreateMenu()
     minBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
         if minimized then
-            mainFrame.Size = UDim2.new(0, 320, 0, 45)
+            mainFrame.Size = UDim2.new(0, 330, 0, 45)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= header then
                     child.Visible = false
@@ -757,7 +698,7 @@ local function CreateMenu()
             end
             minBtn.Text = "□"
         else
-            mainFrame.Size = UDim2.new(0, 320, 0, 480)
+            mainFrame.Size = UDim2.new(0, 330, 0, 480)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= header then
                     child.Visible = true
@@ -1122,6 +1063,65 @@ local function CreateMenu()
     ToggleNoclip(State.Noclip)
     
     return screenGui
+end
+
+-- =============================================
+-- CONFIG FUNCTIONS
+-- =============================================
+local function SaveConfig()
+    if not writefile then return end
+    local settings = {}
+    for k, v in pairs(State) do
+        settings[k] = v
+    end
+    pcall(function()
+        writefile(CONFIG.CONFIG_NAME, httpService:JSONEncode(settings))
+    end)
+    print("✅ Config saved!")
+end
+
+local function LoadConfig()
+    if not isfile or not readfile then return end
+    if not isfile(CONFIG.CONFIG_NAME) then return end
+    local data = httpService:JSONDecode(readfile(CONFIG.CONFIG_NAME))
+    if data then
+        for k, v in pairs(data) do
+            if State[k] ~= nil then
+                State[k] = v
+            end
+        end
+        print("✅ Config loaded!")
+        for _, gui in pairs(playerGui:GetChildren()) do
+            if gui.Name == "InoryaMenu" then
+                gui:Destroy()
+            end
+        end
+        CreateMenu()
+    end
+end
+
+local function ResetConfig()
+    local defaults = {
+        SpeedValue = 50, JumpValue = 100, FlySpeed = 50,
+        Smoothness = 15, FOVRadius = 150,
+        AimbotMode = "POV Kamera (FOV)", AimTarget = "Head",
+        BoxStyle = "Corner Box", TracerOrigin = "Top",
+        NameStyle = "Username", Target = "All"
+    }
+    for k, v in pairs(State) do
+        if defaults[k] ~= nil then
+            State[k] = defaults[k]
+        else
+            State[k] = false
+        end
+    end
+    print("🔄 Config reset!")
+    for _, gui in pairs(playerGui:GetChildren()) do
+        if gui.Name == "InoryaMenu" then
+            gui:Destroy()
+        end
+    end
+    CreateMenu()
 end
 
 -- =============================================
