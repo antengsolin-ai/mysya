@@ -1,5 +1,5 @@
 --[[ 
-    INORYA XELEBOT - KEY SYSTEM + MENU MODERN
+    INORYA XELEBOT - FULL SYSTEM
     API: https://bowarrowapjir.my.id/panel/api.php?key=KEY
 ]]
 
@@ -8,13 +8,14 @@ local playerGui = player:WaitForChild("PlayerGui")
 local httpService = game:GetService("HttpService")
 local userInput = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
+local camera = workspace.CurrentCamera
 
 -- =============================================
 -- KONFIGURASI
 -- =============================================
 local CONFIG = {
     API_URL = "https://bowarrowapjir.my.id/panel/api.php?key=",
-    KEY_FILE = "InoryaKey.txt",
+    KEY_FILE = "Zexzo.txt",
 }
 
 -- =============================================
@@ -38,8 +39,15 @@ local State = {
     Noclip = false,
 }
 
+local espObjects = {}
+local fovCircle = nil
+local bodyVelocity = nil
+local bodyGyro = nil
+local flyKeys = {Forward=false, Backward=false, Left=false, Right=false, Up=false, Down=false}
+local noclipParts = {}
+
 -- =============================================
--- FUNGSI HTTP (WORK DI DELTA)
+-- FUNGSI HTTP
 -- =============================================
 local function HttpGet(url)
     local success, result = pcall(function()
@@ -50,7 +58,7 @@ local function HttpGet(url)
 end
 
 -- =============================================
--- FUNGSI VALIDASI KEY KE API
+-- VALIDASI KEY
 -- =============================================
 local function ValidateKey(key)
     if not key or key == "" then
@@ -65,15 +73,12 @@ local function ValidateKey(key)
         return false, "Gagal menghubungi server."
     end
     
-    print("📥 Response: " .. response)
-    
     local data = httpService:JSONDecode(response)
     if not data then
         return false, "Response API tidak valid."
     end
     
     if data.success == true and data.valid == true then
-        -- Simpan key (TAPI GA USAH AUTO-LOGIN)
         pcall(function()
             if writefile then
                 writefile(CONFIG.KEY_FILE, key)
@@ -86,7 +91,7 @@ local function ValidateKey(key)
 end
 
 -- =============================================
--- CREATE LOGIN GUI
+-- LOGIN GUI
 -- =============================================
 local function CreateLoginGUI(callback)
     local oldGui = playerGui:FindFirstChild("InoryaLogin")
@@ -105,15 +110,6 @@ local function CreateLoginGUI(callback)
     mainFrame.Parent = screenGui
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 16)
     
-    -- Gradient Background
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 45)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 20))
-    })
-    gradient.Parent = mainFrame
-    
-    -- Title
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 55)
     title.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
@@ -124,7 +120,6 @@ local function CreateLoginGUI(callback)
     title.Parent = mainFrame
     Instance.new("UICorner", title).CornerRadius = UDim.new(0, 16)
     
-    -- Subtitle
     local subtitle = Instance.new("TextLabel")
     subtitle.Size = UDim2.new(1, -30, 0, 30)
     subtitle.Position = UDim2.new(0.05, 0, 0.2, 0)
@@ -135,7 +130,6 @@ local function CreateLoginGUI(callback)
     subtitle.TextSize = 12
     subtitle.Parent = mainFrame
     
-    -- Key Box
     local keyBox = Instance.new("TextBox")
     keyBox.Size = UDim2.new(0.85, 0, 0, 42)
     keyBox.Position = UDim2.new(0.075, 0, 0.35, 0)
@@ -149,7 +143,6 @@ local function CreateLoginGUI(callback)
     keyBox.Parent = mainFrame
     Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0, 8)
     
-    -- Login Button
     local loginBtn = Instance.new("TextButton")
     loginBtn.Size = UDim2.new(0.4, 0, 0, 42)
     loginBtn.Position = UDim2.new(0.075, 0, 0.58, 0)
@@ -161,7 +154,6 @@ local function CreateLoginGUI(callback)
     loginBtn.Parent = mainFrame
     Instance.new("UICorner", loginBtn).CornerRadius = UDim.new(0, 8)
     
-    -- Get Key Button
     local getKeyBtn = Instance.new("TextButton")
     getKeyBtn.Size = UDim2.new(0.4, 0, 0, 42)
     getKeyBtn.Position = UDim2.new(0.525, 0, 0.58, 0)
@@ -173,7 +165,6 @@ local function CreateLoginGUI(callback)
     getKeyBtn.Parent = mainFrame
     Instance.new("UICorner", getKeyBtn).CornerRadius = UDim.new(0, 8)
     
-    -- Status Label
     local statusLabel = Instance.new("TextLabel")
     statusLabel.Size = UDim2.new(0.9, 0, 0, 35)
     statusLabel.Position = UDim2.new(0.05, 0, 0.78, 0)
@@ -185,7 +176,6 @@ local function CreateLoginGUI(callback)
     statusLabel.TextWrapped = true
     statusLabel.Parent = mainFrame
     
-    -- LOGIN BUTTON ACTION
     loginBtn.MouseButton1Click:Connect(function()
         local key = keyBox.Text
         if key == "" then
@@ -216,7 +206,6 @@ local function CreateLoginGUI(callback)
         end)
     end)
     
-    -- GET KEY BUTTON
     getKeyBtn.MouseButton1Click:Connect(function()
         statusLabel.Text = "🔗 Hubungi Owner untuk mendapatkan key"
         statusLabel.TextColor3 = Color3.fromRGB(0, 170, 255)
@@ -226,7 +215,6 @@ local function CreateLoginGUI(callback)
         end
     end)
     
-    -- ENTER KEY
     keyBox.FocusLost:Connect(function(enterPressed)
         if enterPressed then
             loginBtn.MouseButton1Click:Fire()
@@ -237,7 +225,245 @@ local function CreateLoginGUI(callback)
 end
 
 -- =============================================
--- MENU MODERN
+-- FITUR-FITUR
+-- =============================================
+
+-- ===== ESP =====
+local function UpdateESP()
+    -- Hapus ESP lama
+    for _, obj in pairs(espObjects) do
+        pcall(function() obj:Destroy() end)
+    end
+    espObjects = {}
+    
+    if not State.ESP then return end
+    
+    for _, plr in pairs(game:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                -- Box ESP
+                if State.Box then
+                    local box = Instance.new("BoxHandleAdornment")
+                    box.Size = Vector3.new(4, 5, 2)
+                    box.Color3 = Color3.fromRGB(255, 50, 50)
+                    box.Adornee = root
+                    box.AlwaysOnTop = true
+                    box.ZIndex = 10
+                    box.Transparency = 0.3
+                    box.Parent = plr.Character
+                    table.insert(espObjects, box)
+                end
+                
+                -- Name
+                local tag = Instance.new("BillboardGui")
+                tag.Size = UDim2.new(0, 120, 0, 30)
+                tag.Adornee = root
+                tag.AlwaysOnTop = true
+                tag.MaxDistance = 300
+                tag.StudsOffset = Vector3.new(0, 3.5, 0)
+                tag.Parent = plr.Character
+                
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.new(1, 0, 1, 0)
+                label.BackgroundTransparency = 1
+                label.Text = plr.Name
+                label.TextColor3 = Color3.fromRGB(255, 255, 255)
+                label.Font = Enum.Font.GothamBold
+                label.TextSize = 12
+                label.Parent = tag
+                
+                table.insert(espObjects, tag)
+                table.insert(espObjects, label)
+            end
+        end
+    end
+end
+
+-- ===== FOV CIRCLE =====
+local function UpdateFOV()
+    if fovCircle then
+        fovCircle:Destroy()
+        fovCircle = nil
+    end
+    
+    if State.ShowFOV and State.Aimbot then
+        fovCircle = Drawing.new("Circle")
+        fovCircle.Radius = State.FOVRadius
+        fovCircle.Thickness = 2
+        fovCircle.Color = Color3.fromRGB(0, 255, 0)
+        fovCircle.Filled = false
+        fovCircle.Visible = true
+        fovCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+        fovCircle.Parent = camera
+    end
+end
+
+-- ===== FLY =====
+local function ToggleFly(state)
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if state then
+        if not hrp or not humanoid then return end
+        
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.Parent = hrp
+        
+        bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+        bodyGyro.Parent = hrp
+        bodyGyro.CFrame = hrp.CFrame
+        
+        humanoid.PlatformStand = true
+    else
+        if bodyVelocity then bodyVelocity:Destroy(); bodyVelocity = nil end
+        if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
+        if humanoid then humanoid.PlatformStand = false end
+    end
+end
+
+-- ===== NOCLIP =====
+local function ToggleNoclip(state)
+    local char = player.Character
+    if not char then return end
+    
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = not state
+        end
+    end
+end
+
+-- =============================================
+-- INPUT HANDLER
+-- =============================================
+userInput.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    local key = input.KeyCode
+    if key == Enum.KeyCode.W then flyKeys.Forward = true
+    elseif key == Enum.KeyCode.S then flyKeys.Backward = true
+    elseif key == Enum.KeyCode.A then flyKeys.Left = true
+    elseif key == Enum.KeyCode.D then flyKeys.Right = true
+    elseif key == Enum.KeyCode.Space then flyKeys.Up = true
+    elseif key == Enum.KeyCode.LeftControl then flyKeys.Down = true
+    end
+end)
+
+userInput.InputEnded:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    local key = input.KeyCode
+    if key == Enum.KeyCode.W then flyKeys.Forward = false
+    elseif key == Enum.KeyCode.S then flyKeys.Backward = false
+    elseif key == Enum.KeyCode.A then flyKeys.Left = false
+    elseif key == Enum.KeyCode.D then flyKeys.Right = false
+    elseif key == Enum.KeyCode.Space then flyKeys.Up = false
+    elseif key == Enum.KeyCode.LeftControl then flyKeys.Down = false
+    end
+end)
+
+-- =============================================
+-- MAIN LOOP
+-- =============================================
+runService.Heartbeat:Connect(function()
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    
+    -- ===== SPEED & JUMP =====
+    if humanoid then
+        if State.Speed then
+            humanoid.WalkSpeed = State.SpeedValue
+        else
+            humanoid.WalkSpeed = 16
+        end
+        
+        if State.Jump then
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = State.JumpValue
+        else
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = 50
+        end
+    end
+    
+    -- ===== FLY =====
+    if State.Fly and bodyVelocity and bodyGyro and hrp then
+        local move = Vector3.new()
+        local speed = State.FlySpeed
+        local forward = hrp.CFrame.LookVector
+        local right = hrp.CFrame.RightVector
+        
+        if flyKeys.Forward then move = move + forward * speed end
+        if flyKeys.Backward then move = move - forward * speed end
+        if flyKeys.Left then move = move - right * speed end
+        if flyKeys.Right then move = move + right * speed end
+        if flyKeys.Up then move = move + Vector3.new(0, speed, 0) end
+        if flyKeys.Down then move = move - Vector3.new(0, speed, 0) end
+        
+        bodyVelocity.Velocity = move
+        bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + camera.CFrame.LookVector)
+    end
+    
+    -- ===== NOCLIP =====
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = not State.Noclip
+            end
+        end
+    end
+    
+    -- ===== AIMBOT =====
+    if State.Aimbot and camera and hrp then
+        local closest = nil
+        local minDist = State.FOVRadius
+        
+        for _, plr in pairs(game:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local screenPos, onScreen = camera:WorldToScreenPoint(root.Position)
+                    if onScreen then
+                        local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                        if dist < minDist then
+                            minDist = dist
+                            closest = root
+                        end
+                    end
+                end
+            end
+        end
+        
+        if closest then
+            local targetCF = CFrame.lookAt(camera.CFrame.Position, closest.Position)
+            local smooth = math.clamp(State.Smoothness / 100, 0.01, 1)
+            camera.CFrame = camera.CFrame:Lerp(targetCF, smooth)
+        end
+    end
+end)
+
+-- =============================================
+-- UPDATE FITUR SAAT STATE BERUBAH
+-- =============================================
+local function OnStateChange(key)
+    if key == "ESP" or key == "Box" or key == "Skeleton" or key == "Tracer" then
+        UpdateESP()
+    elseif key == "ShowFOV" or key == "FOVRadius" then
+        UpdateFOV()
+    elseif key == "Fly" then
+        ToggleFly(State.Fly)
+    elseif key == "Noclip" then
+        ToggleNoclip(State.Noclip)
+    end
+end
+
+-- =============================================
+-- MENU MODERN (DENGAN FITUR)
 -- =============================================
 local function CreateModernMenu()
     local oldMenu = playerGui:FindFirstChild("InoryaMenu")
@@ -249,20 +475,12 @@ local function CreateModernMenu()
     screenGui.ResetOnSpawn = false
     
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 320, 0, 420)
-    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -210)
+    mainFrame.Size = UDim2.new(0, 320, 0, 460)
+    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -230)
     mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 14)
-    
-    -- Gradient
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 48)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 12, 22))
-    })
-    gradient.Parent = mainFrame
     
     -- Header
     local header = Instance.new("Frame")
@@ -272,7 +490,6 @@ local function CreateModernMenu()
     header.Parent = mainFrame
     Instance.new("UICorner", header).CornerRadius = UDim.new(0, 14)
     
-    -- Title
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -70, 1, 0)
     title.Position = UDim2.new(0.05, 0, 0, 0)
@@ -284,7 +501,6 @@ local function CreateModernMenu()
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
     
-    -- Close Button
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 30, 0, 30)
     closeBtn.Position = UDim2.new(1, -38, 0, 8)
@@ -299,7 +515,6 @@ local function CreateModernMenu()
         screenGui:Destroy()
     end)
     
-    -- Minimize Button
     local minBtn = Instance.new("TextButton")
     minBtn.Size = UDim2.new(0, 30, 0, 30)
     minBtn.Position = UDim2.new(1, -72, 0, 8)
@@ -323,7 +538,7 @@ local function CreateModernMenu()
             end
             minBtn.Text = "□"
         else
-            mainFrame.Size = UDim2.new(0, 320, 0, 420)
+            mainFrame.Size = UDim2.new(0, 320, 0, 460)
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= header then
                     child.Visible = true
@@ -333,7 +548,6 @@ local function CreateModernMenu()
         end
     end)
     
-    -- Scrolling Frame untuk konten
     local scrollFrame = Instance.new("ScrollingFrame")
     scrollFrame.Size = UDim2.new(1, 0, 1, -45)
     scrollFrame.Position = UDim2.new(0, 0, 0, 45)
@@ -350,7 +564,7 @@ local function CreateModernMenu()
     content.SortOrder = Enum.SortOrder.LayoutOrder
     content.Parent = scrollFrame
     
-    -- ===== SECTION BUATAN =====
+    -- ===== CREATE SECTION =====
     local function CreateSection(text)
         local section = Instance.new("TextLabel")
         section.Size = UDim2.new(1, -10, 0, 28)
@@ -364,7 +578,7 @@ local function CreateModernMenu()
         return section
     end
     
-    -- ===== TOGGLE BUTTON =====
+    -- ===== CREATE TOGGLE =====
     local function CreateToggle(text, key)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, -10, 0, 36)
@@ -380,11 +594,12 @@ local function CreateModernMenu()
             State[key] = not State[key]
             btn.Text = text .. (State[key] and " [ON]" or " [OFF]")
             btn.BackgroundColor3 = State[key] and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(40, 40, 60)
+            OnStateChange(key)
         end)
         return btn
     end
     
-    -- ===== SLIDER =====
+    -- ===== CREATE SLIDER =====
     local function CreateSlider(text, key, min, max, step)
         local holder = Instance.new("Frame")
         holder.Size = UDim2.new(1, -10, 0, 50)
@@ -437,6 +652,7 @@ local function CreateModernMenu()
             State[key] = val
             valueLabel.Text = tostring(val)
             fill.Size = UDim2.new((val - min) / (max - min), 0, 1, 0)
+            OnStateChange(key)
         end
         
         bar.InputBegan:Connect(function(input)
@@ -481,29 +697,24 @@ local function CreateModernMenu()
     CreateSlider("Fly Speed", "FlySpeed", 10, 300, 10)
     CreateToggle("Noclip", "Noclip")
     
-    -- ===== UPDATE CANVAS =====
     task.wait(0.1)
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, content.AbsoluteContentSize.Y + 20)
     
+    -- Inisialisasi ESP
+    UpdateESP()
+    UpdateFOV()
+    ToggleFly(State.Fly)
+    ToggleNoclip(State.Noclip)
+    
     return screenGui
-end
-
--- =============================================
--- MAIN SYSTEM
--- =============================================
-local function LoadMainSystem()
-    print("🚀 INORYA XELEBOT - MAIN SYSTEM LOADING...")
-    CreateModernMenu()
-    print("✅ INORYA XELEBOT - MENU ACTIVE!")
 end
 
 -- =============================================
 -- START
 -- =============================================
 print("⚡ INORYA XELEBOT - KEY SYSTEM STARTING...")
-print("🌐 API URL: " .. CONFIG.API_URL)
 
--- Tampilkan Login GUI (MANUAL, ga auto-login)
 CreateLoginGUI(function()
-    LoadMainSystem()
+    CreateModernMenu()
+    print("✅ INORYA XELEBOT - FULL SYSTEM ACTIVE!")
 end)
