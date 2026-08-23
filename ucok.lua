@@ -1,5 +1,5 @@
 --[[ 
-    INORYA XELEBOT - MENU VVIP + KEY API SENDIRI
+    INORYA XELEBOT - FINAL (TIMER DETIK + TAB FIX)
     API: https://bowarrowapjir.my.id/panel/api.php?key=KEY
 ]]
 
@@ -20,20 +20,17 @@ local CONFIG = {
 }
 
 -- =============================================
--- VARIABEL FITUR (DARI VVIP)
+-- VARIABEL FITUR
 -- =============================================
 local State = {
     Aimbot = false,
-    AimbotMode = "POV Kamera (FOV)",
-    AimTarget = "Head",
     Smoothness = 15,
-    ShowFOV = false,
     FOVRadius = 150,
+    ShowFOV = false,
     ESP = false,
     Box = false,
     Skeleton = false,
     Tracer = false,
-    Health = false,
     Speed = false,
     SpeedValue = 50,
     Jump = false,
@@ -41,15 +38,14 @@ local State = {
     Fly = false,
     FlySpeed = 50,
     Noclip = false,
-    AutoMacro = false,
 }
 
 local espObjects = {}
 local fovCircle = nil
 local bodyVelocity = nil
 local bodyGyro = nil
-local keyExpiry = "Unlimited"
-local remainingTime = "∞"
+local remainingSeconds = 0
+local remainingText = "∞"
 local isLoggedIn = false
 
 -- =============================================
@@ -64,7 +60,7 @@ local function HttpGet(url)
 end
 
 -- =============================================
--- VALIDASI KEY (PAKE API LO)
+-- VALIDASI KEY
 -- =============================================
 local function ValidateKey(key)
     if not key or key == "" then
@@ -87,22 +83,31 @@ local function ValidateKey(key)
     end
     
     if data.success == true and data.valid == true then
-        keyExpiry = data.expiry_text or "Unlimited"
-        remainingTime = data.remaining or "∞"
+        remainingSeconds = data.remaining_seconds or 0
+        if remainingSeconds > 0 then
+            local days = math.floor(remainingSeconds / 86400)
+            local hours = math.floor((remainingSeconds % 86400) / 3600)
+            local mins = math.floor((remainingSeconds % 3600) / 60)
+            local secs = remainingSeconds % 60
+            remainingText = string.format("%d hari %02d:%02d:%02d", days, hours, mins, secs)
+        else
+            remainingText = "∞"
+        end
+        
         pcall(function()
             if writefile then
                 writefile(CONFIG.KEY_FILE, key)
             end
         end)
         isLoggedIn = true
-        return true, "✅ Login berhasil! Sisa: " .. remainingTime
+        return true, "✅ Login berhasil! Sisa: " .. remainingText
     else
         return false, data.message or "Key tidak valid."
     end
 end
 
 -- =============================================
--- LOGIN GUI (TETEP PAKE PUNYA LO)
+-- LOGIN GUI
 -- =============================================
 local function CreateLoginGUI(callback)
     local oldGui = playerGui:FindFirstChild("InoryaLogin")
@@ -234,14 +239,12 @@ local function CreateLoginGUI(callback)
 end
 
 -- =============================================
--- FITUR-FITUR (DARI VVIP)
+-- FITUR-FITUR
 -- =============================================
 
--- ===== NOCLIP =====
 local function ToggleNoclip(state)
     local char = player.Character
     if not char then return end
-    
     for _, part in pairs(char:GetDescendants()) do
         if part:IsA("BasePart") then
             part.CanCollide = not state
@@ -249,13 +252,9 @@ local function ToggleNoclip(state)
     end
 end
 
--- ===== ESP =====
 local function UpdateESP()
-    for _, obj in pairs(espObjects) do
-        pcall(function() obj:Destroy() end)
-    end
+    for _, obj in pairs(espObjects) do pcall(function() obj:Destroy() end) end
     espObjects = {}
-    
     if not State.ESP then return end
     
     for _, plr in pairs(players:GetPlayers()) do
@@ -316,13 +315,8 @@ for _, plr in pairs(players:GetPlayers()) do
     end)
 end
 
--- ===== FOV =====
 local function UpdateFOV()
-    if fovCircle then
-        fovCircle:Destroy()
-        fovCircle = nil
-    end
-    
+    if fovCircle then fovCircle:Destroy(); fovCircle = nil end
     if State.ShowFOV and State.Aimbot then
         fovCircle = Drawing.new("Circle")
         fovCircle.Radius = State.FOVRadius
@@ -335,7 +329,6 @@ local function UpdateFOV()
     end
 end
 
--- ===== FLY =====
 local function ToggleFly(state)
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -343,7 +336,6 @@ local function ToggleFly(state)
     
     if state then
         if not hrp or not humanoid then return end
-        
         bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
@@ -353,7 +345,6 @@ local function ToggleFly(state)
         bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
         bodyGyro.Parent = hrp
         bodyGyro.CFrame = hrp.CFrame
-        
         humanoid.PlatformStand = true
     else
         if bodyVelocity then bodyVelocity:Destroy(); bodyVelocity = nil end
@@ -376,7 +367,6 @@ runService.Heartbeat:Connect(function()
         else
             humanoid.WalkSpeed = 16
         end
-        
         if State.Jump then
             humanoid.UseJumpPower = true
             humanoid.JumpPower = State.JumpValue
@@ -441,10 +431,40 @@ runService.Heartbeat:Connect(function()
 end)
 
 -- =============================================
+-- TIMER REALTIME (DENGAN DETIK)
+-- =============================================
+local function UpdateTimer()
+    while isLoggedIn do
+        if remainingSeconds > 0 then
+            remainingSeconds = remainingSeconds - 1
+            local days = math.floor(remainingSeconds / 86400)
+            local hours = math.floor((remainingSeconds % 86400) / 3600)
+            local mins = math.floor((remainingSeconds % 3600) / 60)
+            local secs = remainingSeconds % 60
+            remainingText = string.format("%d hari %02d:%02d:%02d", days, hours, mins, secs)
+            
+            -- Update timer di semua menu
+            for _, gui in pairs(playerGui:GetChildren()) do
+                if gui.Name == "InoryaMenu" then
+                    for _, child in pairs(gui:GetDescendants()) do
+                        if child.Name == "TimerLabel" and child:IsA("TextLabel") then
+                            child.Text = "⏳ " .. remainingText
+                        end
+                    end
+                end
+            end
+        else
+            remainingText = "∞"
+        end
+        task.wait(1)
+    end
+end
+
+-- =============================================
 -- UPDATE SAAT STATE BERUBAH
 -- =============================================
 local function OnStateChange(key)
-    if key == "ESP" or key == "Box" or key == "Skeleton" or key == "Tracer" then
+    if key == "ESP" or key == "Box" then
         UpdateESP()
     elseif key == "ShowFOV" or key == "FOVRadius" then
         UpdateFOV()
@@ -456,7 +476,7 @@ local function OnStateChange(key)
 end
 
 -- =============================================
--- MENU (COPY DARI VVIP MODS)
+-- MENU (TAB FIX)
 -- =============================================
 local function CreateMenu()
     local oldMenu = playerGui:FindFirstChild("InoryaMenu")
@@ -533,24 +553,18 @@ local function CreateMenu()
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
     
-    -- Timer
+    -- Timer (dengan detik)
     local timerLabel = Instance.new("TextLabel")
+    timerLabel.Name = "TimerLabel"
     timerLabel.Size = UDim2.new(0.5, 0, 0.5, 0)
     timerLabel.Position = UDim2.new(0.05, 0, 0.5, 0)
     timerLabel.BackgroundTransparency = 1
-    timerLabel.Text = "⏳ " .. remainingTime
+    timerLabel.Text = "⏳ " .. remainingText
     timerLabel.TextColor3 = Color3.fromRGB(0, 255, 200)
     timerLabel.Font = Enum.Font.GothamBold
     timerLabel.TextSize = 11
     timerLabel.TextXAlignment = Enum.TextXAlignment.Left
     timerLabel.Parent = header
-    
-    task.spawn(function()
-        while screenGui and screenGui.Parent do
-            timerLabel.Text = "⏳ " .. remainingTime
-            task.wait(1)
-        end
-    end)
     
     -- Close
     local closeBtn = Instance.new("TextButton")
@@ -567,7 +581,6 @@ local function CreateMenu()
         screenGui:Destroy()
     end)
     
-    -- Minimize
     local minBtn = Instance.new("TextButton")
     minBtn.Size = UDim2.new(0, 30, 0, 30)
     minBtn.Position = UDim2.new(1, -72, 0, 8)
@@ -601,7 +614,7 @@ local function CreateMenu()
         end
     end)
     
-    -- ===== TAB SYSTEM =====
+    -- ===== TAB SYSTEM (FIX) =====
     local tabBar = Instance.new("Frame")
     tabBar.Size = UDim2.new(1, 0, 0, 35)
     tabBar.Position = UDim2.new(0, 0, 0, 45)
@@ -613,36 +626,7 @@ local function CreateMenu()
     local tabButtons = {}
     local currentTab = "AIM"
     
-    local function SwitchTab(tab)
-        currentTab = tab
-        for _, btn in pairs(tabButtons) do
-            btn.BackgroundColor3 = (btn.Text == tab) and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
-        end
-        for _, child in pairs(contentFrame:GetChildren()) do
-            child:Destroy()
-        end
-        BuildTabContent(tab)
-        task.wait(0.1)
-        contentFrame.CanvasSize = UDim2.new(0, 0, 0, contentLayout.AbsoluteContentSize.Y + 20)
-    end
-    
-    for i, tab in ipairs(tabs) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.25, 0, 1, 0)
-        btn.Position = UDim2.new((i-1)*0.25, 0, 0, 0)
-        btn.BackgroundColor3 = (tab == "AIM") and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
-        btn.Text = tab
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 13
-        btn.Parent = tabBar
-        btn.Name = tab
-        table.insert(tabButtons, btn)
-        btn.MouseButton1Click:Connect(function()
-            SwitchTab(tab)
-        end)
-    end
-    
+    -- Content Frame
     local contentFrame = Instance.new("ScrollingFrame")
     contentFrame.Size = UDim2.new(1, 0, 1, -80)
     contentFrame.Position = UDim2.new(0, 0, 0, 80)
@@ -770,6 +754,11 @@ local function CreateMenu()
     
     -- ===== BUILD TAB CONTENT =====
     local function BuildTabContent(tab)
+        -- Bersihin contentFrame
+        for _, child in pairs(contentFrame:GetChildren()) do
+            child:Destroy()
+        end
+        
         if tab == "AIM" then
             CreateSection("🎯 AIMBOT")
             CreateToggle("Aimbot", "Aimbot")
@@ -783,7 +772,6 @@ local function CreateMenu()
             CreateToggle("Box", "Box")
             CreateToggle("Skeleton", "Skeleton")
             CreateToggle("Tracer", "Tracer")
-            CreateToggle("Health", "Health")
             
         elseif tab == "PLAYER" then
             CreateSection("🏃 PLAYER")
@@ -797,14 +785,49 @@ local function CreateMenu()
             
         elseif tab == "MISC" then
             CreateSection("💾 CONFIG")
-            CreateToggle("Auto Macro", "AutoMacro")
+            -- Bisa ditambah button save/load/reset nanti
+            local info = Instance.new("TextLabel")
+            info.Size = UDim2.new(1, -10, 0, 40)
+            info.BackgroundTransparency = 1
+            info.Text = "Pengaturan tersimpan otomatis"
+            info.TextColor3 = Color3.fromRGB(180, 180, 200)
+            info.Font = Enum.Font.Gotham
+            info.TextSize = 12
+            info.Parent = contentFrame
         end
+        
+        task.wait(0.05)
+        contentFrame.CanvasSize = UDim2.new(0, 0, 0, contentLayout.AbsoluteContentSize.Y + 20)
     end
     
-    BuildTabContent("AIM")
+    -- ===== TAB BUTTONS =====
+    local function SwitchTab(tab)
+        currentTab = tab
+        for _, btn in pairs(tabButtons) do
+            btn.BackgroundColor3 = (btn.Text == tab) and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
+        end
+        BuildTabContent(tab)
+    end
     
-    task.wait(0.1)
-    contentFrame.CanvasSize = UDim2.new(0, 0, 0, contentLayout.AbsoluteContentSize.Y + 20)
+    for i, tab in ipairs(tabs) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.25, 0, 1, 0)
+        btn.Position = UDim2.new((i-1)*0.25, 0, 0, 0)
+        btn.BackgroundColor3 = (tab == "AIM") and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
+        btn.Text = tab
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 13
+        btn.Parent = tabBar
+        btn.Name = tab
+        table.insert(tabButtons, btn)
+        btn.MouseButton1Click:Connect(function()
+            SwitchTab(tab)
+        end)
+    end
+    
+    -- Build default tab
+    BuildTabContent("AIM")
     
     UpdateESP()
     UpdateFOV()
@@ -821,5 +844,6 @@ print("⚡ INORYA XELEBOT - STARTING...")
 
 CreateLoginGUI(function()
     CreateMenu()
+    task.spawn(UpdateTimer)
     print("✅ INORYA XELEBOT - ACTIVE!")
 end)
