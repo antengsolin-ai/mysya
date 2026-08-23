@@ -1,5 +1,5 @@
 --[[ 
-    INORYA XELEBOT - FINAL ULTIMATE (TROLL TAB + BYPASS + TIMER)
+    INORYA XELEBOT - FINAL ULTIMATE (TAB FIX + TIMER + ESP REALTIME)
     API: https://bowarrowapjir.my.id/panel/api.php?key=KEY
 ]]
 
@@ -72,7 +72,6 @@ local function ValidateKey(key)
     local url = CONFIG.API_URL .. key
     print("📡 Mengecek key: " .. url)
     
-    -- DELAY 3 DETIK biar gak cepet-cepet
     task.wait(3)
     
     local response = HttpGet(url)
@@ -120,7 +119,6 @@ local function CreateLoginGUI(callback)
     mainFrame.Parent = screenGui
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 16)
     
-    -- Gradient Biru-Hitam
     local grad = Instance.new("UIGradient")
     grad.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 50, 150)),
@@ -248,7 +246,6 @@ local function ToggleNoclip(state)
         end
     end
     
-    -- Paksa tembus pake SetPrimaryPartCFrame
     if state then
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if hrp then
@@ -262,7 +259,7 @@ local function ToggleNoclip(state)
     end
 end
 
--- ===== ESP =====
+-- ===== ESP REAL-TIME =====
 local function UpdateESP()
     for _, obj in pairs(espObjects) do
         pcall(function() obj:Destroy() end)
@@ -309,6 +306,32 @@ local function UpdateESP()
             end
         end
     end
+end
+
+-- ===== LOOP ESP REAL-TIME =====
+task.spawn(function()
+    while task.wait(0.5) do
+        if State.ESP then
+            UpdateESP()
+        end
+    end
+end)
+
+players.PlayerAdded:Connect(function()
+    task.wait(0.5)
+    if State.ESP then UpdateESP() end
+end)
+
+players.PlayerRemoving:Connect(function()
+    task.wait(0.5)
+    if State.ESP then UpdateESP() end
+end)
+
+for _, plr in pairs(players:GetPlayers()) do
+    plr.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        if State.ESP then UpdateESP() end
+    end)
 end
 
 -- ===== FOV CIRCLE =====
@@ -368,7 +391,6 @@ local function TrollPlayer(action, target)
     
     if not targetRoot or not targetHumanoid then return end
     
-    -- BYPASS TROLL: lempar semua player
     if State.BypassTroll then
         for _, plr in pairs(players:GetPlayers()) do
             if plr ~= player and plr.Character then
@@ -421,7 +443,6 @@ end
 local function UpdateTimer()
     while isLoggedIn do
         if keyExpiry ~= "Unlimited" then
-            -- Hitung sisa waktu realtime
             local now = os.time()
             local exp = os.time({year = tonumber(keyExpiry:sub(7,10)), month = tonumber(keyExpiry:sub(4,5)), day = tonumber(keyExpiry:sub(1,2)), hour = tonumber(keyExpiry:sub(12,13)) or 0, min = tonumber(keyExpiry:sub(15,16)) or 0})
             local diff = exp - now
@@ -507,7 +528,7 @@ local function CreateModernMenu()
     
     -- ===== HEADER =====
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -120, 1, 0)
+    title.Size = UDim2.new(0.5, 0, 1, 0)
     title.Position = UDim2.new(0.05, 0, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "⚡ INORYA XELEBOT"
@@ -517,19 +538,18 @@ local function CreateModernMenu()
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
     
-    -- Timer
+    -- Timer (di kiri bawah)
     local timerLabel = Instance.new("TextLabel")
-    timerLabel.Size = UDim2.new(0, 120, 1, 0)
-    timerLabel.Position = UDim2.new(1, -120, 0, 0)
+    timerLabel.Size = UDim2.new(0.5, 0, 0.5, 0)
+    timerLabel.Position = UDim2.new(0.05, 0, 0.5, 0)
     timerLabel.BackgroundTransparency = 1
     timerLabel.Text = "⏳ " .. remainingTime
     timerLabel.TextColor3 = Color3.fromRGB(0, 255, 200)
     timerLabel.Font = Enum.Font.GothamBold
     timerLabel.TextSize = 11
-    timerLabel.TextXAlignment = Enum.TextXAlignment.Right
+    timerLabel.TextXAlignment = Enum.TextXAlignment.Left
     timerLabel.Parent = header
     
-    -- Update timer realtime
     task.spawn(function()
         while screenGui and screenGui.Parent do
             timerLabel.Text = "⏳ " .. remainingTime
@@ -601,18 +621,21 @@ local function CreateModernMenu()
     local function SwitchTab(tab)
         currentTab = tab
         for _, btn in pairs(tabButtons) do
-            btn.BackgroundColor3 = btn.Text == tab and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
+            btn.BackgroundColor3 = (btn.Text == tab) and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
         end
-        -- Update konten tab
-        for _, child in pairs(contentFrame:GetChildren()) do child:Destroy() end
+        for _, child in pairs(contentFrame:GetChildren()) do
+            child:Destroy()
+        end
         BuildTabContent(tab)
+        task.wait(0.1)
+        contentFrame.CanvasSize = UDim2.new(0, 0, 0, contentLayout.AbsoluteContentSize.Y + 20)
     end
     
     for i, tab in ipairs(tabs) do
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0.25, 0, 1, 0)
         btn.Position = UDim2.new((i-1)*0.25, 0, 0, 0)
-        btn.BackgroundColor3 = tab == "AIM" and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
+        btn.BackgroundColor3 = (tab == "AIM") and Color3.fromRGB(0, 100, 255) or Color3.fromRGB(0, 40, 120)
         btn.Text = tab
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btn.Font = Enum.Font.GothamBold
